@@ -1,5 +1,11 @@
 # thanks
 # http://corpocrat.com/2014/10/10/tutorial-pybrain-neural-network-for-classifying-olivetti-faces/
+# to-do
+# DONE import last.fm albums 
+# album art in 4 diff sizes -> fft representation
+# this means input data needs to be resized, add 1 node for each album
+# NEEDS WORK shitty gui
+# aka fix ^
 
 from sklearn 								import datasets
 from pybrain.datasets            			import ClassificationDataSet
