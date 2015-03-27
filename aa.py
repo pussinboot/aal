@@ -10,21 +10,24 @@ from tkdnd_wrapper import TkDND
 
 api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
 user = 'OJClock'
-n_reqs = 2 # change to numpages
-debug = True
+n_pages = 2
+debug = False
 
 class Album:
 	def __init__(self,artist,album,images):
-		self.artist = artist
-		self.album = album
+		self.artist = self.safe(artist)
+		self.album = self.safe(album)
 		self.images = {}
+		self.imagesource = images
 		for i in images:
-			localpath = "./idb/"+artist+"/"+album+"/"
+			localpath = "./idb/"+self.artist+"/"+self.album+"/"
 			filepath = localpath+i['size']+".png"
 			if not os.path.exists(localpath): os.makedirs(localpath)
 			if not os.path.isfile(filepath): urlretrieve(i['#text'],filepath)
 			self.images[i['size']] = filepath
 
+	def safe(self,s):
+		return "".join(x for x in s if x.isalnum() or x == ' ')
 
 	def __str__(self):
 		return str(self.artist) + ' - ' + str(self.album)
@@ -38,6 +41,8 @@ class Album:
 			return self.images['extralarge']
 		else:
 			return self.images['medium']
+	def get_src(self):
+		return self.imagesource
 
 class Gui:
 	def __init__(self, master):        
@@ -46,15 +51,15 @@ class Gui:
 		canvas.grid(row = 0, column = 0)
 		canvas.grid_propagate(False)
 		library = []
-
-		resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ user + "&api_key="+api_key+"&limit="+str(n_reqs)+"&format=json")
-		resp = resp.json()
-		#print(resp)
-		albums = resp['topalbums']['album']
-		
-		for a in albums:
-			#print(a)
-			library.append(Album(a['artist']['name'],a['name'],a['image']))
+		for i in range(n_pages):
+			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ user +"&page="+str(i+1)+ "&api_key="+api_key+"&format=json")
+			resp = resp.json()
+			#print(resp)
+			albums = resp['topalbums']['album']
+			
+			for a in albums:
+				#print(a)
+				library.append(Album(a['artist']['name'],a['name'],a['image']))
 		if debug:
 			for x in library:
 				print(x)
@@ -63,6 +68,7 @@ class Gui:
 				print(x.get_img('l'))
 				print(x.get_img('xl'))
 
+		print(library[0],library[0].get_src())
 		#canvas.create_image(0,0, anchor=tkinter.NW, image = tkinter.PhotoImage(file = library[1].get_img('xl')))
 		textbox = tkinter.Text(height=1)
 		dnd = TkDND(master)
