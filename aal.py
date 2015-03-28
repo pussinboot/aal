@@ -2,12 +2,13 @@
 # http://corpocrat.com/2014/10/10/tutorial-pybrain-neural-network-for-classifying-olivetti-faces/
 # to-do
 # DONE import last.fm albums 
-# album art in 4 diff sizes -> fft representation
-# this means input data needs to be resized, add 1 node for each album
+# DONE album art in 4 diff sizes -> fft representation
+# DONE this means input data needs to be resized, add 1 node for each album
 # NEEDS WORK shitty gui
 # aka fix ^
 
 from sklearn 								import datasets
+from sklearn.preprocessing					import normalize
 from pybrain.datasets            			import ClassificationDataSet
 from pybrain.utilities           			import percentError
 from pybrain.tools.shortcuts     			import buildNetwork
@@ -15,7 +16,7 @@ from pybrain.supervised.trainers 			import BackpropTrainer
 from pybrain.structure.modules   			import SoftmaxLayer
 from pybrain.tools.customxml.networkwriter  import NetworkWriter
 from pybrain.tools.customxml.networkreader  import NetworkReader
-from aa 									import Album
+from aa 									import *
 from PIL 									import Image
 import os, numpy
 
@@ -24,7 +25,6 @@ datasize = datadim**2 # feature size
 
 class Brains():
 	"""
-	so far working with olivetti faces data example
 	variables are: fnn - network state, trndata - training data, tstdata - testing data, datashape - shape of input data
 
 	"""
@@ -56,6 +56,8 @@ class Brains():
 		
 		#print( trndata['input'], trndata['target'], tstdata.indim, tstdata.outdim)
 		# read or create network
+		# check to see if the data is same as before
+		# if it is, just load the network???
 		if  os.path.isfile('saved_net.xml'): 
 			self.fnn = NetworkReader.readFrom('saved_net.xml') 
 		else:
@@ -74,7 +76,7 @@ class Brains():
 
 	def quit(self):
 		# write network
-		NetworkWriter.writeToFile(self.fnn, 'oliv.xml')
+		NetworkWriter.writeToFile(self.fnn, 'saved_net.xml')
 
 class ImDb():
 	"""
@@ -82,13 +84,13 @@ class ImDb():
 	properly handles image files from last.fm
 	"""
  
-	def __init__(self): #library
+	def __init__(self,library): 
 		self.X = [] # images
 		self.y = [] # classifier
 		self.y_to_name = []
 		self.count = 0
-		#for a in library:
-		#	self.add(a)
+		for a in library:
+			self.add(a)
 
 	def add(self,album):
 		# resize/fft the image and add to db
@@ -99,7 +101,8 @@ class ImDb():
 			try:
 				temp_img = self.fix_img(album.get_img(im_sizes[i]))
 				temp_img = self.throwaway(temp_img,datadim)
-				self.X.numpy.append(temp_img,axis=0)
+				temp_img = normalize(temp_img)
+				self.X.append(temp_img)
 				self.y.append(self.count)
 			except:
 				print(im_sizes[i],'missing from', album)
@@ -114,27 +117,29 @@ class ImDb():
 		i = i.convert('L') # grayscale
 		a = numpy.asarray(i) # read only :(
 		b = abs(numpy.fft.rfft2(a)) # fft
-		# normalize?
 		return b
 
-	def throwaway(self,a,k): # randomly keep k of the array a
-		if k >= len(a):
+	def throwaway(self,a,k): # randomly keep k of the array a (in each dim)
+		if k > len(a):
 			return a
 		else:
 			i = numpy.random.choice(len(a), k) 
-			b = a[i]
-			for bb in b:
-				if k >= len(bb):
-					return b
+			b = a[i]		
+			c = numpy.empty([k,k])
+			for i in range(k):
+				#print(k-len(b[i]))
+
+				if k < len(b[i]):
+					c[i] = b[i][numpy.random.choice(len(b[i]), k)]
 				else:
-					j = numpy.random.choice(len(b), k)
-					return  
+					c[i][:len(b[i])], c[i][len(b[i]):] = b[i],numpy.zeros(k-len(b[i]))
+			return c
 
 	def get_X(self):
-		return self.X
+		return numpy.asarray(self.X)
 
 	def get_y(self):
-		return self.y
+		return numpy.asarray(self.y)
 
 	def get_name(self,y):
 		try:
@@ -153,6 +158,12 @@ if __name__=='__main__':
 	I = ImDb()
 	test_album = Album('Kitty Pryde', 'The Lizzie Mcguire Experience', [{'#text': 'http://userserve-ak.last.fm/serve/34s/78192478.jpg', 'size': 'small'}, {'#text': 'http://userserve-ak.last.fm/serve/64s/78192478.jpg', 'size': 'medium'}, {'#text': 'http://userserve-ak.last.fm/serve/126/78192478.jpg', 'size': 'large'}, {'#text': 'http://userserve-ak.last.fm/serve/300x300/78192478.jpg', 'size': 'extralarge'}])
 	#print(test_album.get_img('s'))
+	#temp_img = I.fix_img(test_album.get_img('s'))
+	#print(len(temp_img),len(temp_img[0]))
+	#print('throwaway')
+	#temp_img = I.throwaway(temp_img,datadim)
+	#print(len(temp_img),len(temp_img[0]))
+	#print(temp_img)
 	I.add(test_album)
 	print(len(I.get_X()))
 	#print(I.get_y())
