@@ -1,3 +1,8 @@
+# TO-DO
+# fix up data management so can tell if network has been trained already 
+# also check if same user as before ?
+# what is the testing actually doing :v)
+
 # album art
 import tkinter # default?
 import json
@@ -8,7 +13,9 @@ import os
 os.environ['TKDND_LIBRARY'] = 'C:/Python34/Lib/tkdnd2.8/'
 from tkdnd_wrapper import TkDND
 from aal import *
-
+from mbox import MessageBox
+from io import BytesIO
+from PIL import ImageTk, Image
 
 debug = False
 class AA:
@@ -18,9 +25,10 @@ class AA:
 		self.n_pages = 2
 		self.library = []
 		self.ready_to_learn = False
+		self.ready_to_test = False
 
 	def set_user(self,u):
-		self.user = u
+		if u != '': self.username = u
 
 	def how_many(self,n):
 		self.n_pages = n // 50
@@ -30,7 +38,6 @@ class AA:
 		for i in range(self.n_pages):
 			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
-			#print(resp)
 			albums = resp['topalbums']['album']	
 			for a in albums:
 				self.library.append(Album(a['artist']['name'],a['name'],a['image']))
@@ -41,20 +48,25 @@ class AA:
 				print(x.get_img('m'))
 				print(x.get_img('l'))
 				print(x.get_img('xl'))
+		self.brain = Brains(self.library)
 		self.ready_to_learn = True
+		self.ready_to_test = True # only if has been trained before .-.
 		print('done')
 
-	def learn(self):
+	def learn(self,n):
 		if not self.ready_to_learn:
 			print('not ready to learn')
 			return
 		else:
-			self.brain = Brains(self.library)
-			self.brain.train()
-			print('woo')
+			self.brain.train(n)
+
+	def tester(self,img):
+		if not self.ready_to_test: return
+		out = self.brain.test(img)
+		print(out)
 
 	def quit(self):
-		self.brain.quit()
+		if self.ready_to_learn:	self.brain.quit()
 
 class Album:
 	def __init__(self,artist,album,images):
@@ -95,36 +107,69 @@ class Gui:
 			self.aa.quit()
 			master.quit()
 
-		canvas = tkinter.Canvas(master,width=300,height=600)
-		canvas.grid(row = 0, column = 0)
-		canvas.grid_propagate(False)
-		#canvas.create_image(0,0, anchor=tkinter.NW, image = tkinter.PhotoImage(file = library[1].get_img('xl')))
-		textbox = tkinter.Text(height=1)
-		dnd = TkDND(master)
-		textbox.place(x=0,y=327,width=300)
+		def user_select():
+			self.aa.set_user(self.user.get())
+			self.aa.init_db()
 
-		self.button1 = tkinter.Button(canvas,text='init database', width = 300, height = 75,command = aa.init_db, anchor=tkinter.NW)
-		self.button2 = tkinter.Button(canvas,text='learn',width = 300, height = 75,command = aa.learn,anchor=tkinter.NW)
-		self.button3 = tkinter.Button(canvas,text='exit',width = 300, height = 75,command = quitter,anchor=tkinter.NW)
-		self.button1.place(x=0,y=375) 
-		self.button2.place(x=0,y=450)
-		self.button3.place(x=0,y=525)
-
-		def test(content):
-			if content[:8] == 'http://' or content[:9] == 'https://':
-				urlretrieve(content,'/idb/temp.png') # use PIL here to convert image to correct size/type
-			elif os.path.isfile(content): #open the file
-				canvas.create_image(0,0, anchor=tkinter.NW, image = tkinter.PhotoImage(file = content))
+		def image_select():
+			content = self.mbox('drag an image or paste url',entry=True)
+			if content:
+				content = content.strip()
+				if content[0]=='{':	content = content[1:-1]
+				print(content)
+				if content[:7] == 'http://' or content[:8] == 'https://':
+					response = requests.get(content)
+					img = Image.open(BytesIO(response.content))
+				elif os.path.isfile(content): #open the file
+					img = Image.open(content)
+				else:
+					return
+				imgn = img.resize((300,300), Image.NEAREST)
+				imgn = ImageTk.PhotoImage(img)
+				self.panel.configure(image = imgn)
+				self.panel.image = imgn
+				self.aa.tester(img)
 			if debug: print(content)
 
-		def handle(event):
-			event.widget.insert(tkinter.END, event.data)
-			content = textbox.get("0.0",tkinter.END)
-			test(content)
-			# do something
+		def trainer():
+			num = self.n_iter.get()
+			try:
+				n = int(num)
+				aa.learn(n)
+			except ValueError:
+				self.n_iter.set(5)
+				return
+			#print(num)
 
-
-		dnd.bindtarget(textbox, handle, 'text/uri-list')
+		canvas = tkinter.Canvas(master,width=300,height=600)
+		canvas.grid_propagate(False)
+		#img = tkinter.PhotoImage(file = 'test.png')
+		self.panel = tkinter.Label(canvas,anchor=tkinter.NW)#, image = img)
+		#self.panel.image = img
+		self.panel.place(x=0,y=0)
+		button1 = tkinter.Button(master,text='init database', width = 30, height = 5,command = user_select)
+		self.user = tkinter.StringVar()
+		self.n_iter = tkinter.StringVar()
+		self.n_iter.set('5')
+		userentry = tkinter.Entry(master,textvariable=self.user,width=11)
+		button2 = tkinter.Button(master,text='train',width = 30, height = 5,command = trainer)
+		iterspin = tkinter.Spinbox(master,from_=1,to=100,textvariable=self.n_iter,justify=tkinter.RIGHT,width=3)
+		button3 = tkinter.Button(master,text='test',width = 42, height = 5,command = image_select)
+		button4 = tkinter.Button(master,text='exit',width = 42, height = 5,command = quitter)
+		button1.place(x=0,y=300) 
+		userentry.place(x=221,y=328)
+		button2.place(x=0,y=375)
+		iterspin.place(x=270,y=403)
+		button3.place(x=0,y=450)
+		button4.place(x=0,y=525)
+		canvas.pack()
+		master.mainloop()
+		
+	def mbox(self,msg, b1='OK', b2='Cancel', frame=True, t=False, entry=False):
+		msgbox = MessageBox(msg, b1, b2, frame, t, entry)
+		msgbox.root.mainloop()
+		msgbox.root.destroy()
+		return msgbox.returning
 
 if __name__=='__main__':
 	aa = AA()
