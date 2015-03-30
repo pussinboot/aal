@@ -30,14 +30,13 @@ class Brains():
 	"""
 	def __init__(self,library):
 		# load data
-		#olivetti = datasets.fetch_olivetti_faces()
-		#X, y = olivetti.data, olivetti.target
-		I = ImDb(library)
-		X = I.get_X()
-		y = I.get_y()
+
+		self.I = ImDb(library)
+		X = self.I.get_X()
+		y = self.I.get_y()
 		# use I.get_name() with corresponding y to get test result??
 		self.datashape = X.shape
-		final_count = I.get_count()
+		final_count = self.I.get_count()
 		#print(X.shape)
 		# create data set
 		ds = ClassificationDataSet(datasize, 1 , nb_classes=final_count)
@@ -68,10 +67,19 @@ class Brains():
 		trainer.trainEpochs (n_iter)
 		print( 'Percent Error on Test dataset: ' , percentError( trainer.testOnClassData (dataset=self.tstdata ) , self.tstdata['class'] ))
 	
-	def test(self,testdata):
-		out = self.fnn.activateOnDataset(testdata)
-		out = out.argmax(axis=1)
-		out = out.reshape(self.datashape)
+	def test(self,img):
+		img = img.convert('L') # grayscale
+		a = numpy.asarray(img)
+		b = abs(numpy.fft.rfft2(a)) # fft
+		testdata = self.I.throwaway(b,datadim)
+		testdata = normalize(testdata)
+		testdata = numpy.ravel(testdata)
+		out = self.fnn.activate(testdata)
+		#out = out.argmax(axis=1)
+		#out = out.reshape(self.datashape)
+		# ??
+		#c = numpy.fft.irfft2(b)
+		#j = Image.fromarray(c.astype(numpy.uint8))
 		return out
 
 	def quit(self):
@@ -107,6 +115,13 @@ class ImDb():
 			except:
 				print(im_sizes[i],'missing from', album)
 		self.count += 1
+
+	def test_img(self,file):
+		temp_img = self.fix_img(file)
+		if type(temp_img) == 'NoneType': return
+		temp_img = self.throwaway(temp_img,datadim)
+		temp_img = normalize(temp_img)
+		return temp_img
 
 	def fix_img(self,file):
 		try:
@@ -151,12 +166,12 @@ class ImDb():
 	def get_count(self):
 		return self.count
 
-if __name__=='__main__':
+#if __name__=='__main__':
 	#b = Brains()
 	#b.train(1)
 	#b.quit()#
-	I = ImDb()
-	test_album = Album('Kitty Pryde', 'The Lizzie Mcguire Experience', [{'#text': 'http://userserve-ak.last.fm/serve/34s/78192478.jpg', 'size': 'small'}, {'#text': 'http://userserve-ak.last.fm/serve/64s/78192478.jpg', 'size': 'medium'}, {'#text': 'http://userserve-ak.last.fm/serve/126/78192478.jpg', 'size': 'large'}, {'#text': 'http://userserve-ak.last.fm/serve/300x300/78192478.jpg', 'size': 'extralarge'}])
+	#I = ImDb()
+	#test_album = Album('Kitty Pryde', 'The Lizzie Mcguire Experience', [{'#text': 'http://userserve-ak.last.fm/serve/34s/78192478.jpg', 'size': 'small'}, {'#text': 'http://userserve-ak.last.fm/serve/64s/78192478.jpg', 'size': 'medium'}, {'#text': 'http://userserve-ak.last.fm/serve/126/78192478.jpg', 'size': 'large'}, {'#text': 'http://userserve-ak.last.fm/serve/300x300/78192478.jpg', 'size': 'extralarge'}])
 	#print(test_album.get_img('s'))
 	#temp_img = I.fix_img(test_album.get_img('s'))
 	#print(len(temp_img),len(temp_img[0]))
@@ -164,7 +179,7 @@ if __name__=='__main__':
 	#temp_img = I.throwaway(temp_img,datadim)
 	#print(len(temp_img),len(temp_img[0]))
 	#print(temp_img)
-	I.add(test_album)
-	print(len(I.get_X()))
+	#I.add(test_album)
+	#print(len(I.get_X()))
 	#print(I.get_y())
-	print(I.get_name(0))
+	#print(I.get_name(0))
