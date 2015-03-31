@@ -7,6 +7,7 @@
 import tkinter # default?
 import json
 import requests # dependancy
+import pickle
 # tkdnd
 from urllib.request import urlretrieve
 import os
@@ -20,12 +21,32 @@ from PIL import ImageTk, Image
 debug = False
 class AA:
 	def __init__(self):
-		self.username = 'OJClock' # mine
-		self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
-		self.n_pages = 2
-		self.library = []
-		self.ready_to_learn = False
-		self.ready_to_test = False
+			self.ready_to_learn = False
+			self.ready_to_test = False
+			self.library = []
+
+			if not os.path.exists('savedata'):
+				self.savedata = open('savedata','wb')
+				self.username = 'OJClock' # mine
+				self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
+				self.n_pages = 2
+				
+			else:
+				read = open('savedata','rb')
+				try:
+					saved_dict = pickle.load(read)
+					read.close()
+					self.username = saved_dict['username']
+					print('loaded',self.username,'\'s library')
+					self.api_key = saved_dict['api_key']
+					self.n_pages = saved_dict['n_pages']
+					self.savedata = open('savedata','wb')
+				except:
+					read.close()
+					os.remove('savedata')
+					self.__init__()
+				
+		
 
 	def set_user(self,u):
 		if u != '': self.username = u
@@ -48,7 +69,7 @@ class AA:
 				print(x.get_img('m'))
 				print(x.get_img('l'))
 				print(x.get_img('xl'))
-		self.brain = Brains(self.library)
+		self.brain = Brains(self.library,self.username)
 		self.ready_to_learn = True
 		self.ready_to_test = True # only if has been trained before .-.
 		print('done')
@@ -62,11 +83,21 @@ class AA:
 
 	def tester(self,img):
 		if not self.ready_to_test: return
-		out = self.brain.test(img)
-		print(out)
+		#out = self.brain.test(img)
+		#print(out)
+		self.brain.test_acc()
 
 	def quit(self):
 		if self.ready_to_learn:	self.brain.quit()
+		new_dict = {}
+		new_dict['username'] = self.username
+		new_dict['api_key'] = self.api_key
+		new_dict['n_pages'] = self.n_pages
+		#new_dict['library'] =  self.library
+		pickle.dump(new_dict,self.savedata)
+		self.savedata.close()
+
+
 
 class Album:
 	def __init__(self,artist,album,images):
@@ -102,10 +133,11 @@ class Album:
 class Gui:
 	def __init__(self, master, aa):        
 		self.aa = aa
-
 		def quitter():
 			self.aa.quit()
-			master.quit()
+			master.destroy()
+
+		master.protocol("WM_DELETE_WINDOW", quitter)
 
 		def user_select():
 			self.aa.set_user(self.user.get())
