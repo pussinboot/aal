@@ -1,5 +1,7 @@
 # thanks
 # http://corpocrat.com/2014/10/10/tutorial-pybrain-neural-network-for-classifying-olivetti-faces/
+# try to rewrite following
+# http://sujitpal.blogspot.com/2014/07/handwritten-digit-recognition-with.html
 # to-do
 # DONE import last.fm albums 
 # DONE album art in 4 diff sizes -> fft representation
@@ -28,8 +30,9 @@ class Brains():
 	variables are: fnn - network state, trndata - training data, tstdata - testing data, datashape - shape of input data
 
 	"""
-	def __init__(self,library):
+	def __init__(self,library,username):
 		# load data
+		self.username = username
 
 		self.I = ImDb(library)
 		X = self.I.get_X()
@@ -57,16 +60,23 @@ class Brains():
 		# read or create network
 		# check to see if the data is same as before
 		# if it is, just load the network???
-		if  os.path.isfile('saved_net.xml'): 
-			self.fnn = NetworkReader.readFrom('saved_net.xml') 
+		if os.path.isfile(self.username+'.xml'): 
+			self.fnn = NetworkReader.readFrom(self.username+'.xml') 
 		else:
-			self.fnn = buildNetwork( self.trndata.indim, datadim , self.trndata.outdim, outclass=SoftmaxLayer )
+			self.fnn = buildNetwork( self.trndata.indim, datadim , self.trndata.outdim,bias=True, outclass=SoftmaxLayer )
+			print('initial training')
+			self.train(25)
 	
 	def train(self,n_iter=5):
 		trainer = BackpropTrainer( self.fnn, dataset=self.trndata, momentum=0.1, verbose=True, weightdecay=0.01) 
 		trainer.trainEpochs (n_iter)
 		print( 'Percent Error on Test dataset: ' , percentError( trainer.testOnClassData (dataset=self.tstdata ) , self.tstdata['class'] ))
 	
+	def test_acc(self):
+		out = self.fnn.activateOnDataset(self.tstdata)
+		print(out)
+		print(self.tstdata['class'])
+
 	def test(self,img):
 		img = img.convert('L') # grayscale
 		a = numpy.asarray(img)
@@ -84,7 +94,7 @@ class Brains():
 
 	def quit(self):
 		# write network
-		NetworkWriter.writeToFile(self.fnn, 'saved_net.xml')
+		NetworkWriter.writeToFile(self.fnn, self.username+'.xml')
 
 class ImDb():
 	"""
