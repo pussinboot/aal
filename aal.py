@@ -11,13 +11,13 @@
 
 from sklearn 								import datasets
 from sklearn.preprocessing					import normalize
-from pybrain.datasets            			import ClassificationDataSet
-from pybrain.utilities           			import percentError
-from pybrain.tools.shortcuts     			import buildNetwork
-from pybrain.supervised.trainers 			import BackpropTrainer
-from pybrain.structure.modules   			import SoftmaxLayer
-from pybrain.tools.customxml.networkwriter  import NetworkWriter
-from pybrain.tools.customxml.networkreader  import NetworkReader
+#from pybrain.datasets            			import ClassificationDataSet
+#from pybrain.utilities           			import percentError
+#from pybrain.tools.shortcuts     			import buildNetwork
+#from pybrain.supervised.trainers 			import BackpropTrainer
+#from pybrain.structure.modules   			import SoftmaxLayer
+#from pybrain.tools.customxml.networkwriter  import NetworkWriter
+#from pybrain.tools.customxml.networkreader  import NetworkReader
 from aa 									import *
 from PIL 									import Image
 import os, numpy
