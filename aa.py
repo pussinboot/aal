@@ -23,7 +23,7 @@ class AA:
 	def __init__(self):
 			self.ready_to_learn = False
 			self.ready_to_test = False
-			self.library = []
+			self.library = {}
 
 			if not os.path.exists('savedata'):
 				self.savedata = open('savedata','wb')
@@ -64,9 +64,10 @@ class AA:
 			resp = resp.json()
 			albums = resp['topalbums']['album']	
 			for a in albums:
-				self.library.append(Album(a['artist']['name'],a['name'],a['image']))
+				new_alb = Album(a['artist']['name'],a['name'],a['image'])
+				self.library[new_alb.__str__()] = new_alb
 		if debug:
-			for x in self.library:
+			for x in self.library.values():
 				print(x)
 				print(x.get_img('s'))
 				print(x.get_img('m'))
