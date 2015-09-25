@@ -14,7 +14,7 @@ class Brains():
 		self.X = []
 		self.y = []
 		self.y_to_name = []
-		for a in library:
+		for a in library.values():
 			self.add_album(a)
 		finalX = np.zeros((len(self.X),len(self.X[0])))
 		for i in range(len(self.X)):
@@ -45,10 +45,16 @@ class Brains():
 		test_cos = cosine_similarity(test,self.X)[0]
 		test_ind = self.y[np.where(test_cos > thres)[0]] # except we want in order of best fit first
 		n_albums = len(set(test_ind))
+		# something to note, what if an album has all 4 of its sizes match closely but less than just 1 size of another?
+		# wouldn't that be a better choice? yes, but that ignores the fact that if something matches better, and it is actually correct
+		# then its other sizes should also match well. so i have thought about this issue and decided in most cases looking at the mode 
+		# first offers no benefits for increased computation.
 		largest = np.argpartition(test_cos, -4*n_albums)[-4*n_albums:]
 		largest_in_order = largest[np.argsort(test_cos[largest])][::-1]
-		#print(self.y[largest_in_order])
-		return list(set(self.y[largest_in_order]))
+		# unique, in order 
+		tor = []
+		[tor.append(y) for y in self.y[largest_in_order] if not tor.count(y)]
+		return tor
 
 	def meaningful_test(self,filename,thres=0.5):
 		# generator for album titles
@@ -64,7 +70,7 @@ if __name__ == '__main__':
 	test_aa.init_db()
 	my_brain = Brains(test_aa.library)
 	print(my_brain.test_img("./MyBloodyValentineLoveless.jpg"))
-	mbv  = my_brain.meaningful_test("./MyBloodyValentineLoveless.jpg")
+	mbv = my_brain.meaningful_test("./MyBloodyValentineLoveless.jpg")
 	for name in mbv:
 		print(name)
 	#print(next(mbv))
