@@ -11,9 +11,9 @@ import pickle
 # tkdnd
 from urllib.request import urlretrieve
 import os
-os.environ['TKDND_LIBRARY'] = 'C:/Python34/Lib/tkdnd2.8/'
+#os.environ['TKDND_LIBRARY'] = 'C:/Python34/Lib/tkdnd2.8/'
 from tkdnd_wrapper import TkDND
-from aal import *
+from aal2 import *
 from mbox import MessageBox
 from io import BytesIO
 from PIL import ImageTk, Image
@@ -40,7 +40,10 @@ class AA:
 					print('loaded',self.username,'\'s library')
 					self.api_key = saved_dict['api_key']
 					self.n_pages = saved_dict['n_pages']
+					self.library = saved_dict['library']
 					self.savedata = open('savedata','wb')
+					#Brains(self.library[:10])
+
 				except:
 					read.close()
 					os.remove('savedata')
@@ -52,7 +55,7 @@ class AA:
 		if u != '': self.username = u
 
 	def how_many(self,n):
-		self.n_pages = n // 50
+		self.n_pages = (n+1) // 50
 
 	def init_db(self):
 		print('initializing db')
@@ -69,17 +72,11 @@ class AA:
 				print(x.get_img('m'))
 				print(x.get_img('l'))
 				print(x.get_img('xl'))
-		self.brain = Brains(self.library,self.username)
-		self.ready_to_learn = True
-		self.ready_to_test = True # only if has been trained before .-.
+		#self.brain = Brains(self.library,self.username)
+		#self.ready_to_learn = True
+		#self.ready_to_test = True # only if has been trained before .-.
 		print('done')
 
-	def learn(self,n):
-		if not self.ready_to_learn:
-			print('not ready to learn')
-			return
-		else:
-			self.brain.train(n)
 
 	def tester(self,img):
 		if not self.ready_to_test: return
@@ -88,12 +85,11 @@ class AA:
 		self.brain.test_acc()
 
 	def quit(self):
-		if self.ready_to_learn:	self.brain.quit()
 		new_dict = {}
 		new_dict['username'] = self.username
 		new_dict['api_key'] = self.api_key
 		new_dict['n_pages'] = self.n_pages
-		#new_dict['library'] =  self.library
+		new_dict['library'] =  self.library
 		pickle.dump(new_dict,self.savedata)
 		self.savedata.close()
 
@@ -109,11 +105,15 @@ class Album:
 			localpath = "./idb/"+self.artist+"/"+self.album+"/"
 			filepath = localpath+i['size']+".png"
 			if not os.path.exists(localpath): os.makedirs(localpath)
-			if not os.path.isfile(filepath): urlretrieve(i['#text'],filepath)
-			self.images[i['size']] = filepath
+			try:
+				if not os.path.isfile(filepath): urlretrieve(i['#text'],filepath)
+				self.images[i['size']] = filepath
+			except:
+				pass
 
 	def safe(self,s):
-		return "".join(x for x in s if x.isalnum() or x == ' ')
+		#return "".join(x for x in s if x.isalnum() or x == ' ')
+		return "".join(char for char in s if char not in "\/:*?<>|")
 
 	def __str__(self):
 		return str(self.artist) + ' - ' + str(self.album)
