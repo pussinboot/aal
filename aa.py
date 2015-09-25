@@ -1,14 +1,9 @@
-# TO-DO
-# fix up data management so can tell if network has been trained already 
-# also check if same user as before ?
-# what is the testing actually doing :v)
-
 # album art
-import tkinter # default?
+import tkinter as tk
 import json
-import requests # dependancy
+import requests 
 import pickle
-# tkdnd
+
 from urllib.request import urlretrieve
 import os
 #os.environ['TKDND_LIBRARY'] = 'C:/Python34/Lib/tkdnd2.8/'
@@ -21,51 +16,62 @@ from PIL import ImageTk, Image
 debug = False
 class AA:
 	def __init__(self):
-			self.ready_to_learn = False
 			self.ready_to_test = False
-			self.library = {}
 
-			if not os.path.exists('savedata'):
-				self.savedata = open('savedata','wb')
+			if not os.path.exists('./idb/savedata'):
 				self.username = 'OJClock' # mine
 				self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
 				self.n_pages = 2
-				
+				self.total = 99
+				self.save_data()
+				self.load_library()
 			else:
-				read = open('savedata','rb')
+				read = open('./idb/savedata','rb')
 				try:
 					saved_dict = pickle.load(read)
 					read.close()
-					self.username = saved_dict['username']
-					print('loaded',self.username,'\'s library')
+					self.username = saved_dict['username'] # last user (or default)
 					self.api_key = saved_dict['api_key']
 					self.n_pages = saved_dict['n_pages']
-					self.library = saved_dict['library']
-					self.savedata = open('savedata','wb')
-					#Brains(self.library[:10])
+					self.total = saved_dict['n_total']
+					self.load_library()
+					print('loaded',self.username,'\'s library')
+					self.brains = Brains(self.library)
+					self.ready_to_test = True 
 
 				except:
 					read.close()
-					os.remove('savedata')
+					os.remove('./idb/savedata')
 					self.__init__()
 				
 		
 
 	def set_user(self,u):
-		if u != '': self.username = u
+		if u != '' and u != self.username:
+			self.save_library()
+			self.username = u
+			self.load_library()
+		if not self.ready_to_test:
+			self.init_db()
 
 	def how_many(self,n):
+		if n != self.total:
+			self.ready_to_test = False
 		self.n_pages = (n+1) // 50
+		self.total = n
 
 	def init_db(self):
 		print('initializing db')
 		for i in range(self.n_pages):
 			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
-			albums = resp['topalbums']['album']	
-			for a in albums:
+			albums = resp['topalbums']['album']
+			to_end = self.total - i * 50
+			if to_end <= 0: break
+			for a in albums[:to_end]:
 				new_alb = Album(a['artist']['name'],a['name'],a['image'])
-				self.library[new_alb.__str__()] = new_alb
+				if new_alb.__str__() not in self.library:
+					self.library[new_alb.__str__()] = new_alb
 		if debug:
 			for x in self.library.values():
 				print(x)
@@ -73,26 +79,42 @@ class AA:
 				print(x.get_img('m'))
 				print(x.get_img('l'))
 				print(x.get_img('xl'))
-		#self.brain = Brains(self.library,self.username)
-		#self.ready_to_learn = True
-		#self.ready_to_test = True # only if has been trained before .-.
+		self.brains = Brains(self.library)
+		self.ready_to_test = True 
 		print('done')
 
 
 	def tester(self,img):
 		if not self.ready_to_test: return
-		#out = self.brain.test(img)
-		#print(out)
-		self.brain.test_acc()
+		self.brains.test_img(img)
 
-	def quit(self):
+	def load_library(self):
+		if not os.path.exists('./idb/'+self.username):
+			self.library = {}
+			self.ready_to_test = False
+		else:
+			savedlibrary = open('./idb/'+self.username,'rb')
+			self.library = pickle.load(savedlibrary)
+			savedlibrary.close()
+
+	def save_library(self):
+		savedlibrary = open('./idb/'+self.username,'wb')
+		pickle.dump(self.library,savedlibrary)
+		savedlibrary.close()
+
+	def save_data(self):
 		new_dict = {}
 		new_dict['username'] = self.username
 		new_dict['api_key'] = self.api_key
 		new_dict['n_pages'] = self.n_pages
-		new_dict['library'] =  self.library
-		pickle.dump(new_dict,self.savedata)
-		self.savedata.close()
+		new_dict['n_total'] = self.total
+		savedata = open('./idb/savedata','wb')
+		pickle.dump(new_dict,savedata)
+		savedata.close()
+
+	def quit(self):
+		self.save_data()
+		self.save_library()
 
 
 
@@ -120,29 +142,41 @@ class Album:
 		return str(self.artist) + ' - ' + str(self.album)
 
 	def get_img(self,size):
-		if size == 's':
-			return self.images['small']
-		elif size == 'l':
-			return self.images['large']
-		elif size == 'xl':
-			return self.images['extralarge']
-		else:
-			return self.images['medium']
+		lookup = {'s':'small','m':'medium','l':'large','xl':'extralarge'}
+		try:
+			return self.images[lookup[size]]
+		except:
+			if debug: print('failed to find',size)
 	def get_src(self):
 		return self.imagesource
 
 class Gui:
 	def __init__(self, master, aa):        
 		self.aa = aa
+
 		def quitter():
 			self.aa.quit()
 			master.destroy()
 
 		master.protocol("WM_DELETE_WINDOW", quitter)
+		
+		self.user = tk.StringVar()
+		self.user.set(self.aa.username)
 
-		def user_select():
+		self.n_total = tk.StringVar()
+		self.n_total.set(self.aa.total)
+
+		def user_select(*args):
 			self.aa.set_user(self.user.get())
-			self.aa.init_db()
+
+		def n_select(*args):
+			#print(self.n_total.get())
+			try:
+				self.aa.how_many(int(self.n_total.get()))
+			except:
+				return
+
+		self.n_total.trace('w',n_select)
 
 		def image_select():
 			content = self.mbox('drag an image or paste url',entry=True)
@@ -164,38 +198,35 @@ class Gui:
 				self.aa.tester(img)
 			if debug: print(content)
 
-		def trainer():
-			num = self.n_iter.get()
-			try:
-				n = int(num)
-				aa.learn(n)
-			except ValueError:
-				self.n_iter.set(5)
-				return
-			#print(num)
-
-		canvas = tkinter.Canvas(master,width=300,height=600)
-		canvas.grid_propagate(False)
+		img_canvas = tk.Canvas(master,width=300,height=300)
+		#canvas.grid_propagate(False)
 		#img = tkinter.PhotoImage(file = 'test.png')
-		self.panel = tkinter.Label(canvas,anchor=tkinter.NW)#, image = img)
+		#self.panel = tkinter.Label(canvas,anchor=tkinter.NW)#, image = img)
 		#self.panel.image = img
-		self.panel.place(x=0,y=0)
-		button1 = tkinter.Button(master,text='init database', width = 30, height = 5,command = user_select)
-		self.user = tkinter.StringVar()
-		self.n_iter = tkinter.StringVar()
-		self.n_iter.set('5')
-		userentry = tkinter.Entry(master,textvariable=self.user,width=11)
-		button2 = tkinter.Button(master,text='train',width = 30, height = 5,command = trainer)
-		iterspin = tkinter.Spinbox(master,from_=1,to=100,textvariable=self.n_iter,justify=tkinter.RIGHT,width=3)
-		button3 = tkinter.Button(master,text='test',width = 42, height = 5,command = image_select)
-		button4 = tkinter.Button(master,text='exit',width = 42, height = 5,command = quitter)
-		button1.place(x=0,y=300) 
-		userentry.place(x=221,y=328)
-		button2.place(x=0,y=375)
-		iterspin.place(x=270,y=403)
-		button3.place(x=0,y=450)
-		button4.place(x=0,y=525)
-		canvas.pack()
+		#self.panel.place(x=0,y=0)
+		img_canvas.pack(side=tk.TOP)
+
+		start_frame = tk.Frame(master)
+		init_but = tk.Button(start_frame,text='init database', width = 30, height = 5,command = user_select)
+		user_frame = tk.Frame(start_frame)
+		user_label = tk.Label(user_frame,text='username:')
+		user_entry = tk.Entry(user_frame,textvariable=self.user,width=11)
+		no_label = tk.Label(user_frame,text='# albums:')
+		no_entry = tk.Spinbox(user_frame,from_=0,to=250,textvariable=self.n_total,justify=tk.RIGHT,width=3)
+
+		init_but.pack(side=tk.LEFT)
+		user_label.pack()
+		user_entry.pack()
+		no_label.pack()
+		no_entry.pack()
+		user_frame.pack(side=tk.RIGHT)
+		start_frame.pack()
+
+		test_but = tk.Button(master,text='test',width = 42, height = 5,command = image_select)
+		quit_but = tk.Button(master,text='exit',width = 42, height = 5,command = quitter)
+		
+		test_but.pack()
+		quit_but.pack()
 		master.mainloop()
 		
 	def mbox(self,msg, b1='OK', b2='Cancel', frame=True, t=False, entry=False):
@@ -206,7 +237,9 @@ class Gui:
 
 if __name__=='__main__':
 	aa = AA()
-	root = tkinter.Tk()
+	root = tk.Tk()
 	root.wm_resizable(0,0)
 	test = Gui(root,aa)
 	root.mainloop()
+	#aa.set_user('theVerm1n')
+	#aa.quit()
