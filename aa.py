@@ -1,17 +1,26 @@
-# album art
-import tkinter as tk
-import json
-import requests 
-import pickle
+# to-do
+# test from url
+# add if not found?
+# settings, overall stats
+# cute animations while stuff is happening
 
-from urllib.request import urlretrieve
-import os
+import tkinter as tk
+from tkinter import ttk
 from tkdnd_wrapper import TkDND
-from aal2 import *
+
+import os
 from io import BytesIO
+import pickle
 from PIL import ImageTk, Image
 
+from urllib.request import urlretrieve
+import json
+import requests 
+
+from aal2 import *
+
 debug = False
+
 class AA:
 	def __init__(self):
 			self.ready_to_test = False
@@ -61,15 +70,14 @@ class AA:
 	def init_db(self):
 		print('initializing db')
 		for i in range(self.n_pages):
-			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
+			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.getself.topalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
-			albums = resp['topalbums']['album']
+			albums = resp['self.topalbums']['album']
 			to_end = self.total - i * 50
 			if to_end <= 0: break
 			for a in albums[:to_end]:
 				new_alb = Album(a['artist']['name'],a['name'],a['image'])
-				if new_alb.__str__() not in self.library:
-					self.library[new_alb.__str__()] = new_alb
+				self.add_alb(new_alb)
 		if debug:
 			for x in self.library.values():
 				print(x)
@@ -81,6 +89,13 @@ class AA:
 		self.ready_to_test = True 
 		print('done')
 
+	def add_alb(self,alb):
+		if alb.__str__() not in self.library:
+			self.library[alb.__str__()] = alb
+
+	def add_to_brains(self,alb):
+		self.add_alb(alb)
+		if self.ready_to_test: self.brains.add_album(alb)
 
 	def tester(self,img):
 		if not self.ready_to_test: return
@@ -114,8 +129,6 @@ class AA:
 		self.save_data()
 		self.save_library()
 
-
-
 class Album:
 	def __init__(self,artist,album,images):
 		self.artist = self.safe(artist)
@@ -133,7 +146,6 @@ class Album:
 				pass
 
 	def safe(self,s):
-		#return "".join(x for x in s if x.isalnum() or x == ' ')
 		return "".join(char for char in s if char not in "\/:*?<>|")
 
 	def __str__(self):
@@ -145,6 +157,7 @@ class Album:
 			return self.images[lookup[size]]
 		except:
 			if debug: print('failed to find',size)
+
 	def get_src(self):
 		return self.imagesource
 
@@ -170,7 +183,6 @@ class Gui:
 			self.aa.set_user(self.user.get())
 
 		def n_select(*args):
-			#print(self.n_total.get())
 			try:
 				self.aa.how_many(int(self.n_total.get()))
 			except:
@@ -183,8 +195,6 @@ class Gui:
 				return
 			response = self.aa.tester(self.img_file)
 			TestResults(master,response,self.aa)
-			#for resp in response:
-			#	print(resp)
 
 		img_canvas = tk.Canvas(master,width=300,height=300)
 		self.new_img = ImageTk.PhotoImage(Image.open('test.png'))
@@ -249,18 +259,18 @@ class TestResults:
 		self.guess = next(self.responses) # first guess
 		first_album_art = self.aa.library[self.guess].get_img('xl')
 		# tk stuff
-		top = tk.Toplevel()
+		self.top = tk.Toplevel()
 		img = ImageTk.PhotoImage(Image.open(first_album_art))
-		self.img_label = tk.Label(top,image=img)
+		self.img_label = tk.Label(self.top,image=img)
 		self.img_label.image = img
 		self.img_label.pack()
-		self.albumname = tk.Label(top,text=self.guess)
+		self.albumname = tk.Label(self.top,text=self.guess)
 		self.albumname.pack()
-		tk.Label(top, text='is this your album?').pack()
-		yesnoframe = tk.Frame(top)
-		yes = tk.Button(yesnoframe,text="yes")
+		tk.Label(self.top, text='is this your album?').pack()
+		yesnoframe = tk.Frame(self.top)
+		yes = tk.Button(yesnoframe,text="yes",command=self.quit_success)
 		no = tk.Button(yesnoframe,text="no",command=self.go_next)
-		yes.pack(side=tk.LEFT)
+		yes.pack(side=tk.LEFT,expand=tk.YES)
 		no.pack(side=tk.RIGHT)
 		yesnoframe.pack()
 
@@ -268,7 +278,7 @@ class TestResults:
 		try:
 			self.next_alb()
 		except:
-			print('quit')
+			self.quit_fail()
 		new_album_art = self.aa.library[self.guess].get_img('xl')
 		new_img = ImageTk.PhotoImage(Image.open(new_album_art))
 		self.img_label.config(image=new_img)
@@ -278,6 +288,61 @@ class TestResults:
 
 	def next_alb(self):
 		self.guess = next(self.responses)
+
+	def quit_success(self):
+		self.top.destroy()
+	def quit_fail(self):
+		print('quit fail')
+		AlbumSearch(self.aa)
+		# ask if want 2 look it up + add 2 library
+
+		# open up new search thing
+
+class AlbumSearch:
+	def __init__(self,aa):
+		self.aa = aa
+
+		# tk
+		self.top = tk.Toplevel()
+		self.search_query = tk.StringVar()
+		self.search_field = tk.Entry(self.top,textvariable=self.search_query)
+		self.search_frame = tk.Frame(self.top)
+		self.search_tree = ttk.Treeview(self.search_frame,selectmode='browse', show='tree')#, height = 20)
+		self.search_field.bind("<Return>",self.search)
+		self.search_field.pack(side=tk.TOP,anchor=tk.N,fill=tk.X)
+		self.search_tree.pack(side=tk.LEFT,anchor=tk.N,fill=tk.BOTH,expand=tk.Y)#.grid(row=2,column=1,sticky=tk.N) 
+		self.ysb = ttk.Scrollbar(self.search_frame, orient='vertical', command=self.search_tree.yview)
+		self.search_tree.configure(yscrollcommand=self.ysb.set)
+		self.ysb.pack(side=tk.RIGHT,anchor=tk.N,fill=tk.Y)
+		self.search_frame.pack(side=tk.TOP,anchor=tk.N,fill=tk.BOTH,expand=tk.Y)
+		self.search_tree.bind('<Double-1>',self.select_album)
+
+
+	def select_album(self,*args):
+		item = self.search_tree.selection()[0]
+		name = self.search_tree.item(item,"text")
+		artist = self.search_tree.item(item,"values")[0]
+		album = self.search_tree.item(item,"values")[1]
+		images = self.search_tree.item(item,"values")[2]
+
+		new_alb = Album(artist,album,images)
+		self.aa.add_to_brains(new_alb)
+
+		self.top.destroy()
+
+	def search(self,*args):
+		query = self.search_query.get()
+		resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=album.search&album="+ query + "&api_key="+self.aa.api_key+"&format=json")
+		resp = resp.json()
+		albums = resp['results']['albummatches']['album']
+
+		# delete everything in search tree
+		self.search_tree.delete(*self.search_tree.get_children())
+		# insert new albums
+		for album in albums:
+			name = "{0} - {1}".format(album['artist'],album['name'])
+			self.search_tree.insert('', 'end', text=name,values=[album['artist'],album['name'],album['image']])
+
 
 if __name__=='__main__':
 	aa = AA()
