@@ -98,3 +98,7 @@ class TkDND(object):
             setattr(event, name, try_int(getattr(event, name)))
 
         return (event, )
+
+if __name__=='__main__':
+    os.environ['TKDND_LIBRARY'] = './tkdnd/'
+    
