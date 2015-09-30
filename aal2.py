@@ -60,7 +60,7 @@ class Brains():
 		# generator for album titles
 		nos = self.test_img(filename,thres)
 		i = 0
-		while i < len(nos):
+		while i < len(nos) and i < 3: # artificial limit on epic results
 			yield self.y_to_name[nos[i]]
 			i += 1
 
