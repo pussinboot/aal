@@ -6,10 +6,8 @@ import pickle
 
 from urllib.request import urlretrieve
 import os
-#os.environ['TKDND_LIBRARY'] = 'C:/Python34/Lib/tkdnd2.8/'
 from tkdnd_wrapper import TkDND
 from aal2 import *
-from mbox import MessageBox
 from io import BytesIO
 from PIL import ImageTk, Image
 
@@ -86,7 +84,7 @@ class AA:
 
 	def tester(self,img):
 		if not self.ready_to_test: return
-		self.brains.test_img(img)
+		return self.brains.meaningful_test(img,0.66)
 
 	def load_library(self):
 		if not os.path.exists('./idb/'+self.username):
@@ -152,7 +150,9 @@ class Album:
 
 class Gui:
 	def __init__(self, master, aa):        
-		self.aa = aa
+		self.aa = aa 
+		self.dnd = TkDND(master)
+		self.img_file = ""
 
 		def quitter():
 			self.aa.quit()
@@ -179,32 +179,33 @@ class Gui:
 		self.n_total.trace('w',n_select)
 
 		def image_select():
-			content = self.mbox('drag an image or paste url',entry=True)
-			if content:
-				content = content.strip()
-				if content[0]=='{':	content = content[1:-1]
-				print(content)
-				if content[:7] == 'http://' or content[:8] == 'https://':
-					response = requests.get(content)
-					img = Image.open(BytesIO(response.content))
-				elif os.path.isfile(content): #open the file
-					img = Image.open(content)
-				else:
-					return
-				imgn = img.resize((300,300), Image.NEAREST)
-				imgn = ImageTk.PhotoImage(img)
-				self.panel.configure(image = imgn)
-				self.panel.image = imgn
-				self.aa.tester(img)
-			if debug: print(content)
+			if self.img_file == "":
+				return
+			response = self.aa.tester(self.img_file)
+			TestResults(master,response,self.aa)
+			#for resp in response:
+			#	print(resp)
 
 		img_canvas = tk.Canvas(master,width=300,height=300)
-		#canvas.grid_propagate(False)
-		#img = tkinter.PhotoImage(file = 'test.png')
-		#self.panel = tkinter.Label(canvas,anchor=tkinter.NW)#, image = img)
-		#self.panel.image = img
-		#self.panel.place(x=0,y=0)
+		self.new_img = ImageTk.PhotoImage(Image.open('test.png'))
+		img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
 		img_canvas.pack(side=tk.TOP)
+		
+		def test_dnd(event,*args):
+			try: 
+				if event.data[0] == '{': 
+					self.img_file = event.data[1:-1]
+				else:
+					self.img_file = event.data
+				
+				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file).resize((300, 300),Image.ANTIALIAS))
+				img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+			except:
+				self.img_file=""
+				print(event.data)
+
+		self.dnd.bindtarget(img_canvas, test_dnd, 'text/uri-list')
+
 
 		start_frame = tk.Frame(master)
 		init_but = tk.Button(start_frame,text='init database', width = 30, height = 5,command = user_select)
@@ -228,12 +229,55 @@ class Gui:
 		test_but.pack()
 		quit_but.pack()
 		master.mainloop()
+
+class TestResults:
+	def __init__(self,master,response,aa):			
+		"""
+		popup with album u got, asks if this is right or not, if not go to next img, if closed close out
+		if exhaust the list ask if you want to add the album? - that'll take some finnagling -.-
 		
-	def mbox(self,msg, b1='OK', b2='Cancel', frame=True, t=False, entry=False):
-		msgbox = MessageBox(msg, b1, b2, frame, t, entry)
-		msgbox.root.mainloop()
-		msgbox.root.destroy()
-		return msgbox.returning
+		looks like
+		[] (album art)
+		artist- album
+		is this ur album
+		y/n
+		"""
+		# vars
+		self.responses = response
+		self.aa = aa
+
+		self.guess = next(self.responses) # first guess
+		first_album_art = self.aa.library[self.guess].get_img('xl')
+		# tk stuff
+		top = tk.Toplevel()
+		img = ImageTk.PhotoImage(Image.open(first_album_art))
+		self.img_label = tk.Label(top,image=img)
+		self.img_label.image = img
+		self.img_label.pack()
+		self.albumname = tk.Label(top,text=self.guess)
+		self.albumname.pack()
+		tk.Label(top, text='is this your album?').pack()
+		yesnoframe = tk.Frame(top)
+		yes = tk.Button(yesnoframe,text="yes")
+		no = tk.Button(yesnoframe,text="no",command=self.go_next)
+		yes.pack(side=tk.LEFT)
+		no.pack(side=tk.RIGHT)
+		yesnoframe.pack()
+
+	def go_next(self,*args):
+		try:
+			self.next_alb()
+		except:
+			print('quit')
+		new_album_art = self.aa.library[self.guess].get_img('xl')
+		new_img = ImageTk.PhotoImage(Image.open(new_album_art))
+		self.img_label.config(image=new_img)
+		self.img_label.image = new_img
+		self.albumname.config(text=self.guess)
+
+
+	def next_alb(self):
+		self.guess = next(self.responses)
 
 if __name__=='__main__':
 	aa = AA()
