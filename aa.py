@@ -1,8 +1,8 @@
 # to-do
-# test from url
-# add if not found?
 # settings, overall stats
-# cute animations while stuff is happening
+# menu
+
+# cute animations while stuff is happening lol
 
 import tkinter as tk
 from tkinter import ttk
@@ -75,7 +75,7 @@ class AA:
 
 	def stats(self):
 		if self.n_tested > 0:
-			return round(self.n_correct/self.n_tested,3)
+			return self.n_correct/self.n_tested
 		else:
 			return 0
 
@@ -190,7 +190,7 @@ class Gui:
 			master.destroy()
 
 		master.protocol("WM_DELETE_WINDOW", quitter)
-		
+
 		self.user = tk.StringVar()
 		self.user.set(self.aa.username)
 
@@ -270,11 +270,42 @@ class Gui:
 		test_frame.pack()
 		test_but = tk.Button(test_frame,text='test',width = 30, height = 5,command = image_select)
 		test_from_url_but = tk.Button(test_frame,text='from url', width = 10, height = 5, command = test_from_url)
-		quit_but = tk.Button(master,text='exit',width = 42, height = 5,command = quitter)
 		
 		test_but.pack(side=tk.LEFT)
 		test_from_url_but.pack()
-		quit_but.pack()
+
+		# menubar
+		# - file
+		#  open saved library - open file dialogue
+		#  settings - replace userframe with a toplevel
+		#  about X
+		#  quit X
+		# - library X
+		#  stats X
+		#  search for album X
+		def album_searcher():
+			AlbumSearch(self.aa)
+
+		def stat_display():
+			StatDisp(self.aa)
+
+
+		menubar = tk.Menu(master)
+		filemenu = tk.Menu(menubar,tearoff=0)
+		filemenu.add_command(label="open saved library")
+		filemenu.add_command(label="settings")
+		filemenu.add_separator()
+		filemenu.add_command(label="about",command=StatDisp)
+		filemenu.add_command(label="quit",command=quitter)
+		menubar.add_cascade(label='file',menu=filemenu)
+		librarymenu = tk.Menu(menubar,tearoff=0)
+		librarymenu.add_command(label='stats',command=stat_display)
+		librarymenu.add_command(label='search for album to add',command=album_searcher)
+		menubar.add_cascade(label='library',menu=librarymenu)
+		#menubar.entryconfig("library", state="disabled") # mayb if we want to make sure non-default library is loaded in the future before doing things
+
+		master.config(menu=menubar)
+
 		master.mainloop()
 
 class TestResults:
@@ -330,7 +361,7 @@ class TestResults:
 	def quit_success(self):
 		self.aa.correct()
 		self.top.destroy()
-		
+
 	def quit_fail(self):
 		# ask if want 2 look it up + add 2 library
 		self.top.destroy()
@@ -387,6 +418,28 @@ class AlbumSearch:
 		for ind,album in enumerate(self.last_search_res):
 			name = "{0} - {1}".format(album['artist'],album['name'])
 			self.search_tree.insert('', 'end', text=name,values=ind)
+
+class StatDisp():
+	"""
+	small popup with overall library stats
+	user's library with # of albums learned
+	overall test accuracy: __%
+	if no aa supplied then this functions as about box : ^)
+	"""
+	def __init__(self,aa=None):
+		self.top = tk.Toplevel()
+
+		if aa == None: # info
+			self.top.title('about')
+			text1 = 'aal by mc escherr'
+			text2 = 'test images against your top last.fm albums'
+		else:
+			self.top.title('stats')
+			text1 = '{0}\'s library with {1} albums learned'.format(aa.username,len(aa.library))
+			text2 = 'overall test accuracy {0}%'.format(round(100*aa.stats(),1))
+
+		tk.Label(self.top,text=text1).pack()
+		tk.Label(self.top,text=text2).pack()
 
 if __name__=='__main__':
 	aa = AA()
