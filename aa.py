@@ -7,6 +7,8 @@
 import tkinter as tk
 from tkinter import ttk
 from tkdnd_wrapper import TkDND
+import tkinter.messagebox as tkmessagebox
+import tkinter.simpledialog as tksimpledialog
 
 import os
 from io import BytesIO
@@ -30,6 +32,8 @@ class AA:
 				self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
 				self.n_pages = 2
 				self.total = 99
+				self.n_correct = 0
+				self.n_tested = 0
 				self.save_data()
 				self.load_library()
 			else:
@@ -41,6 +45,8 @@ class AA:
 					self.api_key = saved_dict['api_key']
 					self.n_pages = saved_dict['n_pages']
 					self.total = saved_dict['n_total']
+					self.n_correct = saved_dict['n_correct']
+					self.n_tested = saved_dict['n_tested']
 					self.load_library()
 					print('loaded',self.username,'\'s library')
 					self.brains = Brains(self.library)
@@ -66,6 +72,15 @@ class AA:
 			self.ready_to_test = False
 		self.n_pages = (n // 50) + 1
 		self.total = n
+
+	def stats(self):
+		if self.n_tested > 0:
+			return round(self.n_correct/self.n_tested,3)
+		else:
+			return 0
+
+	def correct(self):
+		self.n_correct += 1
 
 	def init_db(self):
 		print('initializing db')
@@ -99,6 +114,7 @@ class AA:
 
 	def tester(self,img):
 		if not self.ready_to_test: return
+		self.n_tested += 1
 		return self.brains.meaningful_test(img,0.66)
 
 	def load_library(self):
@@ -121,6 +137,8 @@ class AA:
 		new_dict['api_key'] = self.api_key
 		new_dict['n_pages'] = self.n_pages
 		new_dict['n_total'] = self.total
+		new_dict['n_correct'] = self.n_correct
+		new_dict['n_tested'] = self.n_tested
 		savedata = open('./idb/savedata','wb')
 		pickle.dump(new_dict,savedata)
 		savedata.close()
@@ -207,15 +225,31 @@ class Gui:
 					self.img_file = event.data[1:-1]
 				else:
 					self.img_file = event.data
-				
 				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file).resize((300, 300),Image.ANTIALIAS))
 				img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
 			except:
 				self.img_file=""
-				print(event.data)
 
 		self.dnd.bindtarget(img_canvas, test_dnd, 'text/uri-list')
 
+		def test_from_url(*args):
+			url = tksimpledialog.askstring("test from url","pls input url")
+			url = url.strip()
+			try:
+				try:
+					response = requests.get(url)
+				except: # i'd rather not but idk
+					response = requests.get(url,verify=False)
+				new_img = Image.open(BytesIO(response.content))
+				new_img = new_img.resize((300, 300),Image.ANTIALIAS)
+				new_img.save("current_test.png")
+				self.img_file="current_test.png"
+				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file))
+				img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+			except:
+				self.img_file=""
+				return
+			image_select()
 
 		start_frame = tk.Frame(master)
 		init_but = tk.Button(start_frame,text='init database', width = 30, height = 5,command = user_select)
@@ -232,11 +266,14 @@ class Gui:
 		no_entry.pack()
 		user_frame.pack(side=tk.RIGHT)
 		start_frame.pack()
-
-		test_but = tk.Button(master,text='test',width = 42, height = 5,command = image_select)
+		test_frame = tk.Frame(master)
+		test_frame.pack()
+		test_but = tk.Button(test_frame,text='test',width = 30, height = 5,command = image_select)
+		test_from_url_but = tk.Button(test_frame,text='from url', width = 10, height = 5, command = test_from_url)
 		quit_but = tk.Button(master,text='exit',width = 42, height = 5,command = quitter)
 		
-		test_but.pack()
+		test_but.pack(side=tk.LEFT)
+		test_from_url_but.pack()
 		quit_but.pack()
 		master.mainloop()
 
@@ -279,6 +316,7 @@ class TestResults:
 			self.next_alb()
 		except:
 			self.quit_fail()
+			return
 		new_album_art = self.aa.library[self.guess].get_img('xl')
 		new_img = ImageTk.PhotoImage(Image.open(new_album_art))
 		self.img_label.config(image=new_img)
@@ -290,13 +328,15 @@ class TestResults:
 		self.guess = next(self.responses)
 
 	def quit_success(self):
+		self.aa.correct()
 		self.top.destroy()
+		
 	def quit_fail(self):
-		print('quit fail')
-		AlbumSearch(self.aa)
 		# ask if want 2 look it up + add 2 library
-
+		self.top.destroy()
+		if tkmessagebox.askokcancel("lookup","want to search for this album and add it to the database?"):
 		# open up new search thing
+			AlbumSearch(self.aa)
 
 class AlbumSearch:
 	def __init__(self,aa):
@@ -305,11 +345,15 @@ class AlbumSearch:
 		# tk
 		self.top = tk.Toplevel()
 		self.search_query = tk.StringVar()
-		self.search_field = tk.Entry(self.top,textvariable=self.search_query)
+		self.entry_frame = tk.Frame(self.top)
+		self.search_field = tk.Entry(self.entry_frame,textvariable=self.search_query)
+		self.search_button = tk.Button(self.entry_frame,text='srch',command=self.search)
+		self.entry_frame.pack()
 		self.search_frame = tk.Frame(self.top)
 		self.search_tree = ttk.Treeview(self.search_frame,selectmode='browse', show='tree')#, height = 20)
 		self.search_field.bind("<Return>",self.search)
-		self.search_field.pack(side=tk.TOP,anchor=tk.N,fill=tk.X)
+		self.search_field.pack(side=tk.LEFT,anchor=tk.N,fill=tk.X)
+		self.search_button.pack()
 		self.search_tree.pack(side=tk.LEFT,anchor=tk.N,fill=tk.BOTH,expand=tk.Y)#.grid(row=2,column=1,sticky=tk.N) 
 		self.ysb = ttk.Scrollbar(self.search_frame, orient='vertical', command=self.search_tree.yview)
 		self.search_tree.configure(yscrollcommand=self.ysb.set)
