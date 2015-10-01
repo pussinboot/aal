@@ -64,15 +64,15 @@ class AA:
 	def how_many(self,n):
 		if n != self.total:
 			self.ready_to_test = False
-		self.n_pages = (n+1) // 50
+		self.n_pages = (n // 50) + 1
 		self.total = n
 
 	def init_db(self):
 		print('initializing db')
 		for i in range(self.n_pages):
-			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.getself.topalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
+			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
-			albums = resp['self.topalbums']['album']
+			albums = resp['topalbums']['album']
 			to_end = self.total - i * 50
 			if to_end <= 0: break
 			for a in albums[:to_end]:
@@ -95,7 +95,7 @@ class AA:
 
 	def add_to_brains(self,alb):
 		self.add_alb(alb)
-		if self.ready_to_test: self.brains.add_album(alb)
+		if self.ready_to_test: self.brains.add_album_post_train(alb)
 
 	def tester(self,img):
 		if not self.ready_to_test: return
@@ -321,10 +321,12 @@ class AlbumSearch:
 	def select_album(self,*args):
 		item = self.search_tree.selection()[0]
 		name = self.search_tree.item(item,"text")
-		artist = self.search_tree.item(item,"values")[0]
-		album = self.search_tree.item(item,"values")[1]
-		images = self.search_tree.item(item,"values")[2]
-
+		ind = int(self.search_tree.item(item,"values")[0])
+		
+		artist = self.last_search_res[ind]['artist']
+		album = self.last_search_res[ind]['name']
+		images = self.last_search_res[ind]['image']
+		
 		new_alb = Album(artist,album,images)
 		self.aa.add_to_brains(new_alb)
 
@@ -334,15 +336,13 @@ class AlbumSearch:
 		query = self.search_query.get()
 		resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=album.search&album="+ query + "&api_key="+self.aa.api_key+"&format=json")
 		resp = resp.json()
-		albums = resp['results']['albummatches']['album']
-
+		self.last_search_res = resp['results']['albummatches']['album']
 		# delete everything in search tree
 		self.search_tree.delete(*self.search_tree.get_children())
 		# insert new albums
-		for album in albums:
+		for ind,album in enumerate(self.last_search_res):
 			name = "{0} - {1}".format(album['artist'],album['name'])
-			self.search_tree.insert('', 'end', text=name,values=[album['artist'],album['name'],album['image']])
-
+			self.search_tree.insert('', 'end', text=name,values=ind)
 
 if __name__=='__main__':
 	aa = AA()

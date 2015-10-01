@@ -24,14 +24,22 @@ class Brains():
 
 	def add_album(self,album):
 		fnames = album.images.values()
-		nsamp = len(fnames)
-		if nsamp == 0: return
+		if len(fnames) == 0: return
 		this_y = len(self.y_to_name) # new y index 
 		self.y_to_name.append(album.__str__())
 		for fname in fnames:
 			self.y.append(this_y)
 			self.X.append(self.process_img(fname))
 
+	def add_album_post_train(self,album): # since we have numpy arrays, have to append (this is slower but what wil u do)
+		fnames = album.images.values()
+		if len(fnames) == 0: return
+		this_y = len(self.y_to_name)
+		self.y_to_name.append(album.__str__())
+		for fname in fnames:
+			self.y = np.append(self.y,this_y)
+			self.X = np.vstack((self.X,self.process_img(fname)))
+			
 	def process_img(self,filename):
 	    testim = io.imread(filename,as_grey=True)
 	    out = resize(testim,(25,25))
