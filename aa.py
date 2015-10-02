@@ -234,7 +234,7 @@ class Gui:
 		def user_select(*args):
 			self.queue = queue.Queue()
 			userget = lambda : self.aa.set_user(self.user.get())
-			start_anim('initializing')
+			start_anim()
 			ThreadedTask(self.queue,userget).start()
 			master.after(100, process_queue)
 
@@ -261,37 +261,29 @@ class Gui:
 
 		img_canvas = tk.Canvas(master,width=300,height=300)
 		self.loading_texts = []
-		self.init_texts = []
-
+		self.loading_rects = []
 		for i in range(4):
-			load_text = 'loading'+ '.'*i
-			init_text = 'initializing' + '.'*i
-			loading_text = img_canvas.create_text((150,150),text=load_text,font="-weight bold -size 16")
+			datext = 'loading'+ '.'*i
+			loading_text = img_canvas.create_text((150,150),text=datext,font="-weight bold -size 16")
 			loading_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
-			initializing_text = img_canvas.create_text((150,150),text=init_text,font="-weight bold -size 16")
-			initializing_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
 			img_canvas.tag_lower(loading_rect,loading_text)
 			self.loading_texts.append(loading_text)
-			self.init_texts.append(initializing_text)
 			self.loading_rect = loading_rect # want largest bounding
-			self.init_rect = initializing_rect
+
 		#self.anim_counter = 0
 
-		def loading_anim(rect,texts):
+		def loading_anim():
 			if self.anim_counter >= 0: 
-				img_canvas.tag_raise(rect)
-				img_canvas.tag_raise(texts[self.anim_counter])
+				img_canvas.tag_raise(self.loading_rect)
+				img_canvas.tag_raise(self.loading_texts[self.anim_counter])
 				img_canvas.update()
 				#time.sleep(0.5)
 				self.anim_counter = (self.anim_counter + 1) % 4
-				master.after(100, lambda: loading_anim(rect,texts))
+				master.after(100, loading_anim)
 
-		def start_anim(textvar='loading'):
+		def start_anim():
 			self.anim_counter = 0
-			if textvar == 'loading':
-				loading_anim(self.loading_rect,self.loading_texts)
-			elif textvar == 'initializing':
-				loading_anim(self.init_rect,self.init_texts)
+			loading_anim()
 
 		def stop_anim():
 			self.anim_counter = -1
