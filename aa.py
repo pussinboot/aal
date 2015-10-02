@@ -215,96 +215,37 @@ class ThreadedTask(threading.Thread):
 			raise
 class Gui:
 	def __init__(self, master):        
-		self.aa = AA() # mayb shud put this near end and thread it >:)
+
+		# overarching vars
+
 		self.dnd = TkDND(master)
 		self.img_file = ""
 
-		def quitter():
-			self.aa.quit()
-			master.destroy()
-
-		master.protocol("WM_DELETE_WINDOW", quitter)
-
 		self.user = tk.StringVar()
-		self.user.set(self.aa.username) # 2end
-
 		self.n_total = tk.StringVar()
-		self.n_total.set(self.aa.total) # 2end
+		
+		# button functions
 
-		def user_select(*args):
+		def user_select(*args): # init db button
 			self.queue = queue.Queue()
 			userget = lambda : self.aa.set_user(self.user.get())
 			start_anim()
 			ThreadedTask(self.queue,userget).start()
 			master.after(100, process_queue)
 
-		def process_queue():
-			try:
-				msg = self.queue.get(0)
-				stop_anim()
-			except queue.Empty:
-				master.after(100, process_queue)
-
-		def n_select(*args):
+		def n_select(*args): # number of albums entry
 			try:
 				self.aa.how_many(int(self.n_total.get()))
 			except:
 				return
 
-		self.n_total.trace('w',n_select)
-
-		def image_select():
+		def image_select(): # test button
 			if self.img_file == "":
 				return
 			response = self.aa.tester(self.img_file)
 			TestResults(master,response,self.aa)
 
-		img_canvas = tk.Canvas(master,width=300,height=300)
-		self.loading_texts = []
-		self.loading_rects = []
-		for i in range(4):
-			datext = 'loading'+ '.'*i
-			loading_text = img_canvas.create_text((150,150),text=datext,font="-weight bold -size 16")
-			loading_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
-			img_canvas.tag_lower(loading_rect,loading_text)
-			self.loading_texts.append(loading_text)
-			self.loading_rect = loading_rect # want largest bounding
-
-		def loading_anim():
-			if self.anim_counter >= 0: 
-				img_canvas.tag_raise(self.loading_rect)
-				img_canvas.tag_raise(self.loading_texts[self.anim_counter])
-				img_canvas.update()
-				#time.sleep(0.5)
-				self.anim_counter = (self.anim_counter + 1) % 4
-				master.after(100, loading_anim)
-
-		def start_anim():
-			self.anim_counter = 0
-			loading_anim()
-
-		def stop_anim():
-			self.anim_counter = -1
-			img_canvas.tag_raise(self.albumart)
-
-		self.new_img = ImageTk.PhotoImage(Image.open('test.png'))
-		self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
-		img_canvas.pack(side=tk.TOP)
-		
-		def test_dnd(event,*args):
-			try: 
-				if event.data[0] == '{': 
-					self.img_file = event.data[1:-1]
-				else:
-					self.img_file = event.data
-				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file).resize((300, 300),Image.ANTIALIAS))
-				self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
-			except:
-				self.img_file=""
-
-		self.dnd.bindtarget(img_canvas, test_dnd, 'text/uri-list')
-
-		def test_from_url(*args):
+		def test_from_url(*args): # test from url button
 			url = tksimpledialog.askstring("test from url","pls input url")
 			if not url:
 				return
@@ -325,6 +266,23 @@ class Gui:
 				return
 			image_select()
 
+		def test_dnd(event,*args): # test button
+			try: 
+				if event.data[0] == '{': 
+					self.img_file = event.data[1:-1]
+				else:
+					self.img_file = event.data
+				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file).resize((300, 300),Image.ANTIALIAS))
+				self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+			except:
+				self.img_file=""
+
+		# tk elements
+
+		img_canvas = tk.Canvas(master,width=300,height=300)
+		self.new_img = ImageTk.PhotoImage(Image.open('test.png')) # standard image (says drag-n-drop here)
+		self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+
 		start_frame = tk.Frame(master)
 		init_but = tk.Button(start_frame,text='init database', width = 30, height = 5,command = user_select)
 		user_frame = tk.Frame(start_frame)
@@ -336,6 +294,14 @@ class Gui:
 		test_frame = tk.Frame(master)
 		test_but = tk.Button(test_frame,text='test',width = 30, height = 5,command = image_select)
 		test_from_url_but = tk.Button(test_frame,text='from url', width = 10, height = 5, command = test_from_url)
+
+		# tk binding
+		self.n_total.trace('w',n_select)
+		self.dnd.bindtarget(img_canvas, test_dnd, 'text/uri-list')
+
+		# tk packing (layout)
+
+		img_canvas.pack(side=tk.TOP)
 		
 		test_frame.pack()
 		test_but.pack(side=tk.LEFT)
@@ -349,15 +315,38 @@ class Gui:
 		user_frame.pack(side=tk.RIGHT)
 		start_frame.pack()
 
-		# menubar
-		# - file
-		#  open saved library - open file dialogue
-		#  settings - replace userframe with a toplevel.. nah
-		#  about X
-		#  quit X
-		# - library X
-		#  stats X
-		#  search for album X
+		# animations
+
+		self.loading_texts = []
+		self.loading_rects = []
+		for i in range(4):
+			datext = 'loading'+ '.'*i
+			loading_text = img_canvas.create_text((150,150),text=datext,font="-weight bold -size 16")
+			loading_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
+			img_canvas.tag_lower(loading_rect,loading_text)
+			self.loading_texts.append(loading_text)
+			self.loading_rect = loading_rect # want largest bounding
+
+		img_canvas.tag_raise(self.albumart)
+
+		def loading_anim():
+			if self.anim_counter >= 0: 
+				img_canvas.tag_raise(self.loading_rect)
+				img_canvas.tag_raise(self.loading_texts[self.anim_counter])
+				img_canvas.update()
+				#time.sleep(0.5)
+				self.anim_counter = (self.anim_counter + 1) % 4
+				master.after(100, loading_anim)
+
+		def start_anim():
+			self.anim_counter = 0
+			loading_anim()
+
+		def stop_anim():
+			self.anim_counter = -1
+			img_canvas.tag_raise(self.albumart)
+		
+		# menubar functions
 
 		def album_searcher():
 			AlbumSearch(self.aa)
@@ -384,37 +373,22 @@ class Gui:
 				p_q = lambda : process_queue_open_lib(username)
 				master.after(100, p_q)
 							
-
-		def process_queue_open_lib(username):
-			try:
-				msg = self.queue.get(0)
-				if self.load_success:
-					self.user.set(username)
-					self.aa.username = username
-					print('loaded {0}\'s library'.format(username))
-				else:
-					self.aa.load_library()
-				stop_anim()
-			except queue.Empty:
-				do_again = lambda : process_queue_open_lib(username)
-				master.after(100, do_again)
+		# menubar
 
 		menubar = tk.Menu(master)
 		filemenu = tk.Menu(menubar,tearoff=0)
 		filemenu.add_command(label="open saved library",command=open_lib)
-		#filemenu.add_command(label="settings")
 		filemenu.add_separator()
 		filemenu.add_command(label="about",command=StatDisp)
-		filemenu.add_command(label="quit",command=quitter)
 		menubar.add_cascade(label='file',menu=filemenu)
 		librarymenu = tk.Menu(menubar,tearoff=0)
 		librarymenu.add_command(label='stats',command=stat_display)
 		librarymenu.add_command(label='search for album to add',command=album_searcher)
 		menubar.add_cascade(label='library',menu=librarymenu)
-		#menubar.entryconfig("library", state="disabled") # mayb if we want to make sure non-default library is loaded in the future before doing things
 
 		master.config(menu=menubar)
 
+		# extra functions
 		def toggle_disable():
 			e_or_d = init_but['state'] == 'normal'
 			for but in [init_but,test_but,test_from_url_but,user_entry,no_entry]:
@@ -429,10 +403,45 @@ class Gui:
 				menubar.entryconfig("file",state='normal')
 				menubar.entryconfig("library",state='normal')
 
+		def quitter():
+			self.aa.quit()
+			master.destroy()
+
+		master.protocol("WM_DELETE_WINDOW", quitter)
+		filemenu.add_command(label="quit",command=quitter)
+
+		# threading functions
+		
+		def process_queue(): # for init db
+			try:
+				msg = self.queue.get(0)
+				stop_anim()
+			except queue.Empty:
+				master.after(100, process_queue)
+
+		def process_queue_open_lib(username): # for open lib (in menu)
+			try:
+				msg = self.queue.get(0)
+				if self.load_success:
+					self.user.set(username)
+					self.aa.username = username
+					print('loaded {0}\'s library'.format(username))
+				else:
+					self.aa.load_library()
+				stop_anim()
+			except queue.Empty:
+				do_again = lambda : process_queue_open_lib(username)
+				master.after(100, do_again)
 		#test_it = tk.Button(master,text='just f my s up',width = 42, height = 5,command = toggle_disable)
 		#stop_it = tk.Button(master,text='just s my f up',width = 42, height = 5,command = stop_anim)
 		#test_it.pack()
 		#stop_it.pack()
+
+		# ok now everything is rdy
+		self.aa = AA() # thread me
+
+		self.user.set(self.aa.username) 
+		self.n_total.set(self.aa.total) 
 
 		master.mainloop()
 
