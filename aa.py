@@ -10,6 +10,8 @@ from tkdnd_wrapper import TkDND
 import tkinter.messagebox as tkmessagebox
 import tkinter.simpledialog as tksimpledialog
 import tkinter.filedialog as tkfiledialog
+
+import time
 import os
 from io import BytesIO
 import pickle
@@ -18,6 +20,9 @@ from PIL import ImageTk, Image
 from urllib.request import urlretrieve
 import json
 import requests 
+
+import queue
+import threading
 
 from aal2 import *
 
@@ -140,7 +145,9 @@ class AA:
 			self.brains = Brains(self.library)
 			return True
 		except:
+			tkmessagebox.showerror('error','could not open library\n{0}'.format(file))
 			return False
+		
 
 	def save_library(self):
 		savedlibrary = open('./saves/'+self.username,'wb')
@@ -195,6 +202,17 @@ class Album:
 	def get_src(self):
 		return self.imagesource
 
+class ThreadedTask(threading.Thread):
+	def __init__(self, queue,task):
+		threading.Thread.__init__(self)
+		self.queue = queue
+		self.task = task
+	def run(self):
+		try:
+			self.task()
+			self.queue.put("Task finished")
+		except:
+			raise
 class Gui:
 	def __init__(self, master, aa):        
 		self.aa = aa 
@@ -214,7 +232,18 @@ class Gui:
 		self.n_total.set(self.aa.total)
 
 		def user_select(*args):
-			self.aa.set_user(self.user.get())
+			self.queue = queue.Queue()
+			userget = lambda : self.aa.set_user(self.user.get())
+			start_anim('initializing')
+			ThreadedTask(self.queue,userget).start()
+			master.after(100, process_queue)
+
+		def process_queue():
+			try:
+				msg = self.queue.get(0)
+				stop_anim()
+			except queue.Empty:
+				master.after(100, process_queue)
 
 		def n_select(*args):
 			try:
@@ -231,8 +260,45 @@ class Gui:
 			TestResults(master,response,self.aa)
 
 		img_canvas = tk.Canvas(master,width=300,height=300)
+		self.loading_texts = []
+		self.init_texts = []
+
+		for i in range(4):
+			load_text = 'loading'+ '.'*i
+			init_text = 'initializing' + '.'*i
+			loading_text = img_canvas.create_text((150,150),text=load_text,font="-weight bold -size 16")
+			loading_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
+			initializing_text = img_canvas.create_text((150,150),text=init_text,font="-weight bold -size 16")
+			initializing_rect = img_canvas.create_rectangle(img_canvas.bbox(loading_text),fill="gray")
+			img_canvas.tag_lower(loading_rect,loading_text)
+			self.loading_texts.append(loading_text)
+			self.init_texts.append(initializing_text)
+			self.loading_rect = loading_rect # want largest bounding
+			self.init_rect = initializing_rect
+		#self.anim_counter = 0
+
+		def loading_anim(rect,texts):
+			if self.anim_counter >= 0: 
+				img_canvas.tag_raise(rect)
+				img_canvas.tag_raise(texts[self.anim_counter])
+				img_canvas.update()
+				#time.sleep(0.5)
+				self.anim_counter = (self.anim_counter + 1) % 4
+				master.after(100, lambda: loading_anim(rect,texts))
+
+		def start_anim(textvar='loading'):
+			self.anim_counter = 0
+			if textvar == 'loading':
+				loading_anim(self.loading_rect,self.loading_texts)
+			elif textvar == 'initializing':
+				loading_anim(self.init_rect,self.init_texts)
+
+		def stop_anim():
+			self.anim_counter = -1
+			img_canvas.tag_raise(self.albumart)
+
 		self.new_img = ImageTk.PhotoImage(Image.open('test.png'))
-		img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+		self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
 		img_canvas.pack(side=tk.TOP)
 		
 		def test_dnd(event,*args):
@@ -242,7 +308,7 @@ class Gui:
 				else:
 					self.img_file = event.data
 				self.new_img = ImageTk.PhotoImage(Image.open(self.img_file).resize((300, 300),Image.ANTIALIAS))
-				img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
+				self.albumart = img_canvas.create_image((0,0),image=self.new_img,anchor=tk.NW)
 			except:
 				self.img_file=""
 
@@ -312,18 +378,37 @@ class Gui:
 		def open_lib():
 			# first save current
 			self.aa.save_library()
+			# keep track if this works or no
+			self.load_success = False
 			# then ask for new and open it
 			filename = tkfiledialog.askopenfilename(initialdir="./saves")
 			if filename:
-				if not self.aa.load_from_file(filename):
-					tkmessagebox.showerror('error','could not open library\n{0}'.format(filename))
-					return
-				else:
-					username = filename[filename.rfind('/')+1:]
+				self.queue = queue.Queue()
+
+				def load_file():
+					self.load_success = self.aa.load_from_file(filename)
+
+				start_anim()
+				username = filename[filename.rfind('/')+1:]
+				ThreadedTask(self.queue,load_file).start()
+				p_q = lambda : process_queue_open_lib(username)
+				master.after(100, p_q)
+							
+
+		def process_queue_open_lib(username):
+			try:
+				msg = self.queue.get(0)
+				if self.load_success:
 					self.user.set(username)
 					self.aa.username = username
 					print('loaded {0}\'s library'.format(username))
-			
+				else:
+					self.aa.load_library()
+				stop_anim()
+			except queue.Empty:
+				do_again = lambda : process_queue_open_lib(username)
+				master.after(100, do_again)
+
 		menubar = tk.Menu(master)
 		filemenu = tk.Menu(menubar,tearoff=0)
 		filemenu.add_command(label="open saved library",command=open_lib)
@@ -339,6 +424,11 @@ class Gui:
 		#menubar.entryconfig("library", state="disabled") # mayb if we want to make sure non-default library is loaded in the future before doing things
 
 		master.config(menu=menubar)
+
+		# test_it = tk.Button(master,text='just f my s up',width = 42, height = 5,command = start_anim)
+		# stop_it = tk.Button(master,text='just s my f up',width = 42, height = 5,command = stop_anim)
+		# test_it.pack()
+		# stop_it.pack()
 
 		master.mainloop()
 
