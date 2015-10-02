@@ -229,6 +229,7 @@ class Gui:
 		def user_select(*args): # init db button
 			self.queue = queue.Queue()
 			userget = lambda : self.aa.set_user(self.user.get())
+			toggle_disable()
 			start_anim()
 			ThreadedTask(self.queue,userget).start()
 			master.after(100, process_queue)
@@ -367,12 +368,13 @@ class Gui:
 				def load_file():
 					self.load_success = self.aa.load_from_file(filename)
 
+				toggle_disable()
 				start_anim()
 				username = filename[filename.rfind('/')+1:]
 				ThreadedTask(self.queue,load_file).start()
 				p_q = lambda : process_queue_open_lib(username)
 				master.after(100, p_q)
-							
+
 		# menubar
 
 		menubar = tk.Menu(master)
@@ -403,6 +405,17 @@ class Gui:
 				menubar.entryconfig("file",state='normal')
 				menubar.entryconfig("library",state='normal')
 
+		def start_aa():
+			self.queue = queue.Queue()
+
+			def make_aa():
+				self.aa = AA()
+
+			toggle_disable()
+			start_anim()
+			ThreadedTask(self.queue,make_aa).start()
+			master.after(100,process_queue_start)
+
 		def quitter():
 			self.aa.quit()
 			master.destroy()
@@ -416,6 +429,7 @@ class Gui:
 			try:
 				msg = self.queue.get(0)
 				stop_anim()
+				toggle_disable()
 			except queue.Empty:
 				master.after(100, process_queue)
 
@@ -429,19 +443,29 @@ class Gui:
 				else:
 					self.aa.load_library()
 				stop_anim()
+				toggle_disable()
 			except queue.Empty:
 				do_again = lambda : process_queue_open_lib(username)
 				master.after(100, do_again)
+
+		def process_queue_start():
+			try:
+				msg = self.queue.get(0)
+				self.user.set(self.aa.username) 
+				self.n_total.set(self.aa.total) 
+				stop_anim()
+				toggle_disable()
+			except queue.Empty:
+				master.after(100, process_queue_start)
+
 		#test_it = tk.Button(master,text='just f my s up',width = 42, height = 5,command = toggle_disable)
 		#stop_it = tk.Button(master,text='just s my f up',width = 42, height = 5,command = stop_anim)
 		#test_it.pack()
 		#stop_it.pack()
 
 		# ok now everything is rdy
-		self.aa = AA() # thread me
-
-		self.user.set(self.aa.username) 
-		self.n_total.set(self.aa.total) 
+		#self.aa = AA() # thread me
+		start_aa()
 
 		master.mainloop()
 
