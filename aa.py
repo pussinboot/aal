@@ -36,8 +36,10 @@ class AA:
 				self.n_tested = 0
 				self.save_data()
 				self.load_library()
+
 			else:
 				read = open('./saves/savedata','rb')
+
 				try:
 					saved_dict = pickle.load(read)
 					read.close()
@@ -64,8 +66,8 @@ class AA:
 			self.save_library()
 			self.username = u
 			self.load_library()
-		if not self.ready_to_test:
-			self.init_db()
+		#if not self.ready_to_test:
+		self.init_db()
 
 	def how_many(self,n):
 		if n != self.total:
@@ -83,7 +85,7 @@ class AA:
 		self.n_correct += 1
 
 	def init_db(self):
-		print('initializing db')
+		print('initializing db for',self.username)
 		for i in range(self.n_pages):
 			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
@@ -126,14 +128,16 @@ class AA:
 			self.ready_to_test = False
 		else:
 			savedlibrary = open('./saves/'+self.username,'rb')
-			self.library = pickle. load(savedlibrary)
+			self.library = pickle.load(savedlibrary)
 			savedlibrary.close()
+			self.brains = Brains(self.library)
 
 	def load_from_file(self,file):
 		try:
 			savedlibrary = open(file,'rb')
 			self.library = pickle.load(savedlibrary)
 			savedlibrary.close()
+			self.brains = Brains(self.library)
 			return True
 		except:
 			return False
@@ -288,7 +292,6 @@ class Gui:
 		no_entry.pack()
 		user_frame.pack(side=tk.RIGHT)
 		start_frame.pack()
-		
 
 		# menubar
 		# - file
@@ -299,6 +302,7 @@ class Gui:
 		# - library X
 		#  stats X
 		#  search for album X
+
 		def album_searcher():
 			AlbumSearch(self.aa)
 
@@ -317,11 +321,9 @@ class Gui:
 				else:
 					username = filename[filename.rfind('/')+1:]
 					self.user.set(username)
-					user_select()
+					self.aa.username = username
 					print('loaded {0}\'s library'.format(username))
 			
-
-
 		menubar = tk.Menu(master)
 		filemenu = tk.Menu(menubar,tearoff=0)
 		filemenu.add_command(label="open saved library",command=open_lib)
@@ -385,7 +387,6 @@ class TestResults:
 		self.img_label.config(image=new_img)
 		self.img_label.image = new_img
 		self.albumname.config(text=self.guess)
-
 
 	def next_alb(self):
 		self.guess = next(self.responses)
