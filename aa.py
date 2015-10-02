@@ -489,6 +489,7 @@ class TestResults:
 		first_album_art = self.aa.library[self.guess].get_img('xl')
 		# tk stuff
 		self.top = tk.Toplevel()
+		self.top.title('test')
 		img = ImageTk.PhotoImage(Image.open(first_album_art))
 		self.img_label = tk.Label(self.top,image=img)
 		self.img_label.image = img
@@ -535,6 +536,7 @@ class AlbumSearch:
 
 		# tk
 		self.top = tk.Toplevel()
+		self.top.title('search')
 		self.search_query = tk.StringVar()
 		self.entry_frame = tk.Frame(self.top)
 		self.search_field = tk.Entry(self.entry_frame,textvariable=self.search_query)
