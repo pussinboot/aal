@@ -214,8 +214,8 @@ class ThreadedTask(threading.Thread):
 		except:
 			raise
 class Gui:
-	def __init__(self, master, aa):        
-		self.aa = aa 
+	def __init__(self, master):        
+		self.aa = AA() # mayb shud put this near end and thread it >:)
 		self.dnd = TkDND(master)
 		self.img_file = ""
 
@@ -226,10 +226,10 @@ class Gui:
 		master.protocol("WM_DELETE_WINDOW", quitter)
 
 		self.user = tk.StringVar()
-		self.user.set(self.aa.username)
+		self.user.set(self.aa.username) # 2end
 
 		self.n_total = tk.StringVar()
-		self.n_total.set(self.aa.total)
+		self.n_total.set(self.aa.total) # 2end
 
 		def user_select(*args):
 			self.queue = queue.Queue()
@@ -269,8 +269,6 @@ class Gui:
 			img_canvas.tag_lower(loading_rect,loading_text)
 			self.loading_texts.append(loading_text)
 			self.loading_rect = loading_rect # want largest bounding
-
-		#self.anim_counter = 0
 
 		def loading_anim():
 			if self.anim_counter >= 0: 
@@ -417,10 +415,24 @@ class Gui:
 
 		master.config(menu=menubar)
 
-		# test_it = tk.Button(master,text='just f my s up',width = 42, height = 5,command = start_anim)
-		# stop_it = tk.Button(master,text='just s my f up',width = 42, height = 5,command = stop_anim)
-		# test_it.pack()
-		# stop_it.pack()
+		def toggle_disable():
+			e_or_d = init_but['state'] == 'normal'
+			for but in [init_but,test_but,test_from_url_but,user_entry,no_entry]:
+				if e_or_d:
+					but.config(state='disabled')
+				else:
+					but.config(state='normal')
+			if e_or_d:
+				menubar.entryconfig("file",state='disabled')
+				menubar.entryconfig("library",state='disabled')
+			else:
+				menubar.entryconfig("file",state='normal')
+				menubar.entryconfig("library",state='normal')
+
+		#test_it = tk.Button(master,text='just f my s up',width = 42, height = 5,command = toggle_disable)
+		#stop_it = tk.Button(master,text='just s my f up',width = 42, height = 5,command = stop_anim)
+		#test_it.pack()
+		#stop_it.pack()
 
 		master.mainloop()
 
@@ -557,8 +569,7 @@ class StatDisp():
 		tk.Label(self.top,text=text2).pack()
 
 if __name__=='__main__':
-	aa = AA()
 	root = tk.Tk()
 	root.wm_resizable(0,0)
 	root.title('aal')
-	test = Gui(root,aa)
+	test = Gui(root)
