@@ -9,7 +9,7 @@ from tkinter import ttk
 from tkdnd_wrapper import TkDND
 import tkinter.messagebox as tkmessagebox
 import tkinter.simpledialog as tksimpledialog
-
+import tkinter.filedialog as tkfiledialog
 import os
 from io import BytesIO
 import pickle
@@ -27,7 +27,7 @@ class AA:
 	def __init__(self):
 			self.ready_to_test = False
 
-			if not os.path.exists('./idb/savedata'):
+			if not os.path.exists('./saves/savedata'):
 				self.username = 'OJClock' # mine
 				self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
 				self.n_pages = 2
@@ -37,7 +37,7 @@ class AA:
 				self.save_data()
 				self.load_library()
 			else:
-				read = open('./idb/savedata','rb')
+				read = open('./saves/savedata','rb')
 				try:
 					saved_dict = pickle.load(read)
 					read.close()
@@ -48,13 +48,13 @@ class AA:
 					self.n_correct = saved_dict['n_correct']
 					self.n_tested = saved_dict['n_tested']
 					self.load_library()
-					print('loaded',self.username,'\'s library')
+					print('loaded {0}\'s library'.format(self.username))
 					self.brains = Brains(self.library)
 					self.ready_to_test = True 
 
 				except:
 					read.close()
-					os.remove('./idb/savedata')
+					os.remove('./saves/savedata')
 					self.__init__()
 				
 		
@@ -87,7 +87,10 @@ class AA:
 		for i in range(self.n_pages):
 			resp = requests.get("http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user="+ self.username +"&page="+str(i+1)+ "&api_key="+self.api_key+"&format=json")
 			resp = resp.json()
-			albums = resp['topalbums']['album']
+			try:
+				albums = resp['topalbums']['album']
+			except:
+				print('error with api call, invalid username?')
 			to_end = self.total - i * 50
 			if to_end <= 0: break
 			for a in albums[:to_end]:
@@ -118,16 +121,25 @@ class AA:
 		return self.brains.meaningful_test(img,0.66)
 
 	def load_library(self):
-		if not os.path.exists('./idb/'+self.username):
+		if not os.path.exists('./saves/'+self.username):
 			self.library = {}
 			self.ready_to_test = False
 		else:
-			savedlibrary = open('./idb/'+self.username,'rb')
-			self.library = pickle.load(savedlibrary)
+			savedlibrary = open('./saves/'+self.username,'rb')
+			self.library = pickle. load(savedlibrary)
 			savedlibrary.close()
 
+	def load_from_file(self,file):
+		try:
+			savedlibrary = open(file,'rb')
+			self.library = pickle.load(savedlibrary)
+			savedlibrary.close()
+			return True
+		except:
+			return False
+
 	def save_library(self):
-		savedlibrary = open('./idb/'+self.username,'wb')
+		savedlibrary = open('./saves/'+self.username,'wb')
 		pickle.dump(self.library,savedlibrary)
 		savedlibrary.close()
 
@@ -139,7 +151,7 @@ class AA:
 		new_dict['n_total'] = self.total
 		new_dict['n_correct'] = self.n_correct
 		new_dict['n_tested'] = self.n_tested
-		savedata = open('./idb/savedata','wb')
+		savedata = open('./saves/savedata','wb')
 		pickle.dump(new_dict,savedata)
 		savedata.close()
 
@@ -164,7 +176,7 @@ class Album:
 				pass
 
 	def safe(self,s):
-		return "".join(char for char in s if char not in "\/:*?<>|")
+		return "".join(char for char in s if char not in "\/:*?<>|.")
 
 	def __str__(self):
 		return str(self.artist) + ' - ' + str(self.album)
@@ -234,6 +246,8 @@ class Gui:
 
 		def test_from_url(*args):
 			url = tksimpledialog.askstring("test from url","pls input url")
+			if not url:
+				return
 			url = url.strip()
 			try:
 				try:
@@ -255,9 +269,17 @@ class Gui:
 		init_but = tk.Button(start_frame,text='init database', width = 30, height = 5,command = user_select)
 		user_frame = tk.Frame(start_frame)
 		user_label = tk.Label(user_frame,text='username:')
-		user_entry = tk.Entry(user_frame,textvariable=self.user,width=11)
+		user_entry = tk.Entry(user_frame,textvariable=self.user,width=11,justify='center')
 		no_label = tk.Label(user_frame,text='# albums:')
 		no_entry = tk.Spinbox(user_frame,from_=0,to=250,textvariable=self.n_total,justify=tk.RIGHT,width=3)
+		
+		test_frame = tk.Frame(master)
+		test_but = tk.Button(test_frame,text='test',width = 30, height = 5,command = image_select)
+		test_from_url_but = tk.Button(test_frame,text='from url', width = 10, height = 5, command = test_from_url)
+		
+		test_frame.pack()
+		test_but.pack(side=tk.LEFT)
+		test_from_url_but.pack()
 
 		init_but.pack(side=tk.LEFT)
 		user_label.pack()
@@ -266,18 +288,12 @@ class Gui:
 		no_entry.pack()
 		user_frame.pack(side=tk.RIGHT)
 		start_frame.pack()
-		test_frame = tk.Frame(master)
-		test_frame.pack()
-		test_but = tk.Button(test_frame,text='test',width = 30, height = 5,command = image_select)
-		test_from_url_but = tk.Button(test_frame,text='from url', width = 10, height = 5, command = test_from_url)
 		
-		test_but.pack(side=tk.LEFT)
-		test_from_url_but.pack()
 
 		# menubar
 		# - file
 		#  open saved library - open file dialogue
-		#  settings - replace userframe with a toplevel
+		#  settings - replace userframe with a toplevel.. nah
 		#  about X
 		#  quit X
 		# - library X
@@ -289,11 +305,27 @@ class Gui:
 		def stat_display():
 			StatDisp(self.aa)
 
+		def open_lib():
+			# first save current
+			self.aa.save_library()
+			# then ask for new and open it
+			filename = tkfiledialog.askopenfilename(initialdir="./saves")
+			if filename:
+				if not self.aa.load_from_file(filename):
+					tkmessagebox.showerror('error','could not open library\n{0}'.format(filename))
+					return
+				else:
+					username = filename[filename.rfind('/')+1:]
+					self.user.set(username)
+					user_select()
+					print('loaded {0}\'s library'.format(username))
+			
+
 
 		menubar = tk.Menu(master)
 		filemenu = tk.Menu(menubar,tearoff=0)
-		filemenu.add_command(label="open saved library")
-		filemenu.add_command(label="settings")
+		filemenu.add_command(label="open saved library",command=open_lib)
+		#filemenu.add_command(label="settings")
 		filemenu.add_separator()
 		filemenu.add_command(label="about",command=StatDisp)
 		filemenu.add_command(label="quit",command=quitter)
@@ -404,7 +436,7 @@ class AlbumSearch:
 		
 		new_alb = Album(artist,album,images)
 		self.aa.add_to_brains(new_alb)
-
+		self.aa.n_tested -= 1
 		self.top.destroy()
 
 	def search(self,*args):
@@ -421,9 +453,9 @@ class AlbumSearch:
 
 class StatDisp():
 	"""
-	small popup with overall library stats
-	user's library with # of albums learned
+	small popup with overall stats
 	overall test accuracy: __%
+	user's library with # of albums learned
 	if no aa supplied then this functions as about box : ^)
 	"""
 	def __init__(self,aa=None):
@@ -435,8 +467,8 @@ class StatDisp():
 			text2 = 'test images against your top last.fm albums'
 		else:
 			self.top.title('stats')
-			text1 = '{0}\'s library with {1} albums learned'.format(aa.username,len(aa.library))
 			text2 = 'overall test accuracy {0}%'.format(round(100*aa.stats(),1))
+			text1 = '{0}\'s library has {1} albums learned'.format(aa.username,len(aa.library))
 
 		tk.Label(self.top,text=text1).pack()
 		tk.Label(self.top,text=text2).pack()
@@ -445,7 +477,5 @@ if __name__=='__main__':
 	aa = AA()
 	root = tk.Tk()
 	root.wm_resizable(0,0)
+	root.title('aal')
 	test = Gui(root,aa)
-	root.mainloop()
-	#aa.set_user('theVerm1n')
-	#aa.quit()
