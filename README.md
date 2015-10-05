@@ -9,7 +9,9 @@ allowing you to test images and identify what album they are
 #### install
 
 `git clone https://github.com/pussinboot/aal.git`
+
 `cd aal`
+
 `python setup.py install`
 
 #### dependencies
