@@ -21,6 +21,6 @@ setup(name='aal',
     	},
        entry_points = {
             'console_scripts': [
-                'aal = aal:main'
+                'aal = aal.aal:main'
             ]
         })

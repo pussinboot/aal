@@ -217,12 +217,13 @@ class ThreadedTask(threading.Thread):
 		except:
 			raise
 class Gui:
-	def __init__(self, master):        
+	def __init__(self, master):      
 
 		# overarching vars
 
 		self.dnd = TkDND(master)
 		self.img_file = ""
+		self.aa = None  
 
 		self.user = tk.StringVar()
 		self.n_total = tk.StringVar()
