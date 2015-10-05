@@ -6,7 +6,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from tkdnd_wrapper import TkDND
+from .tkdnd_wrapper import TkDND
 import tkinter.messagebox as tkmessagebox
 import tkinter.simpledialog as tksimpledialog
 import tkinter.filedialog as tkfiledialog
@@ -24,14 +24,15 @@ import requests
 import queue
 import threading
 
-from aal2 import *
+from .brains import *
 
 debug = False
 
 class AA:
 	def __init__(self):
 			self.ready_to_test = False
-
+			if not os.path.exists('./saves/'):
+				os.makedirs('./saves/')
 			if not os.path.exists('./saves/savedata'):
 				self.username = 'OJClock' # mine
 				self.api_key = '874b1cf6420f724a52da51478cbf02f5' #public key no worries
@@ -172,6 +173,8 @@ class AA:
 
 class Album:
 	def __init__(self,artist,album,images):
+		if not os.path.exists('./idb/'):
+			os.makedirs('./idb/')
 		self.artist = self.safe(artist)
 		self.album = self.safe(album)
 		self.images = {}
@@ -490,6 +493,7 @@ class TestResults:
 		# tk stuff
 		self.top = tk.Toplevel()
 		self.top.title('test')
+		self.top.wm_resizable(0,0)
 		img = ImageTk.PhotoImage(Image.open(first_album_art))
 		self.img_label = tk.Label(self.top,image=img)
 		self.img_label.image = img
@@ -603,8 +607,14 @@ class StatDisp():
 		tk.Label(self.top,text=text1).pack()
 		tk.Label(self.top,text=text2).pack()
 
-if __name__=='__main__':
+def main(*args):
 	root = tk.Tk()
 	root.wm_resizable(0,0)
 	root.title('aal')
 	test = Gui(root)
+
+if __name__=='__main__':
+	main()
+	
+	
+	

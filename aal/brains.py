@@ -4,7 +4,6 @@ from skimage import io
 from skimage.transform import resize
 from sklearn.metrics.pairwise import cosine_similarity
 
-from aa import *
 
 class Brains():
 	"""
@@ -73,6 +72,8 @@ class Brains():
 			i += 1
 
 if __name__ == '__main__':
+	
+	from .aal import *
 
 	test_aa = AA()
 	test_aa.init_db()

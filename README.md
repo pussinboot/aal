@@ -6,6 +6,12 @@ allowing you to test images and identify what album they are
 
 ![here's a preview](https://raw.githubusercontent.com/pussinboot/aal/master/preview.png)
 
+#### install
+
+`git clone https://github.com/pussinboot/aal.git`
+`cd aal`
+`python setup.py install`
+
 #### dependencies
 
 you need to install tkdnd from [here](http://www.sourceforge.net/projects/tkdnd/)
