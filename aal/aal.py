@@ -6,7 +6,6 @@
 
 import tkinter as tk
 from tkinter import ttk
-from .tkdnd_wrapper import TkDND
 import tkinter.messagebox as tkmessagebox
 import tkinter.simpledialog as tksimpledialog
 import tkinter.filedialog as tkfiledialog
@@ -24,7 +23,13 @@ import requests
 import queue
 import threading
 
-from .brains import *
+try:
+	from .tkdnd_wrapper import TkDND
+	from .brains import *
+except:
+	from tkdnd_wrapper import TkDND
+	from brains import *
+
 
 debug = False
 
